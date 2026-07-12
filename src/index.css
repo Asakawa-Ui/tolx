@@ -1,0 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Microsoft YaHei", "微软雅黑", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Microsoft YaHei", "微软雅黑", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Global Reset to Microsoft YaHei */
+*, ::before, ::after {
+  font-family: "Microsoft YaHei", "微软雅黑", "Segoe UI", system-ui, sans-serif !important;
+}
+
+/* Force same font family inside SVG elements */
+svg, svg text, svg tspan {
+  font-family: "Microsoft YaHei", "微软雅黑", "Segoe UI", system-ui, sans-serif !important;
+}
+
+body {
+  font-family: "Microsoft YaHei", "微软雅黑", "Segoe UI", system-ui, sans-serif;
+  background-color: #0A0A0B;
+  color: #E0E0E0;
+}
+

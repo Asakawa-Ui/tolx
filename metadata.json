@@ -1,0 +1,6 @@
+{
+  "name": "Flight Icing Monitor",
+  "description": "A PC client-style flight icing monitoring and forecasting dashboard featuring flight trajectory maps, 9 real-time icing detection algorithms, and multi-product link analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
