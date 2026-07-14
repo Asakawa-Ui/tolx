@@ -21,18 +21,21 @@ export interface FlightSortie {
 
 const FLIGHTS: FlightSortie[] = [
   { id: '20260702_B651N_01', name: '20260702_B651N_01', date: '2026-07-02', startHour: 12, startMin: 0, icing: 'heavy', isLive: true, durationHours: 1 },
-  { id: '20260711_B651N_01', name: '20260711_B651N_01', date: '2026-07-11', startHour: 10, startMin: 20, icing: 'none', isLive: false, durationHours: 1 },
+  { id: '20260711_B651N_01', name: '20260711_B651N_01', date: '2026-07-11', startHour: 10, startMin: 23, icing: 'none', isLive: false, durationHours: 1 },
   { id: '20260710_B651N_01', name: '20260710_B651N_01', date: '2026-07-10', startHour: 8, startMin: 15, icing: 'light', isLive: false, durationHours: 3 },
   { id: '20260711_B651N_02', name: '20260711_B651N_02', date: '2026-07-11', startHour: 15, startMin: 30, icing: 'heavy', isLive: false, durationHours: 2 },
-  { id: '20260710_B651N_02', name: '20260710_B651N_02', date: '2026-07-10', startHour: 13, startMin: 45, icing: 'light', isLive: false, durationHours: 2 },
+  { id: '20260710_B651N_02', name: '20260710_B651N_02', date: '2026-07-10', startHour: 13, startMin: 47, icing: 'light', isLive: false, durationHours: 116 / 60 },
   { id: '20260709_B651N_01', name: '20260709_B651N_01', date: '2026-07-09', startHour: 16, startMin: 10, icing: 'heavy', isLive: false, durationHours: 4 },
 ];
 
 export default function App() {
+  const [intervalVal, setIntervalVal] = useState<string>('1s');
+
   const flightDataMap = useMemo(() => {
     const dataMap: Record<string, FlightDataPoint[]> = {};
     FLIGHTS.forEach(f => {
-      dataMap[f.id] = generateFlightData(f.startHour, f.startMin, f.icing);
+      const stepSeconds = f.isLive ? 1 : 60;
+      dataMap[f.id] = generateFlightData(f.startHour, f.startMin, f.icing, f.durationHours, stepSeconds);
     });
     return dataMap;
   }, []);
@@ -44,24 +47,27 @@ export default function App() {
     return flightDataMap[selectedFlightId] || flightDataMap['20260702_B651N_01'];
   }, [selectedFlightId, flightDataMap]);
   
-  // Scrubber index (0-60)
-  const [currentIndex, setCurrentIndex] = useState<number>(24); // Start near the cloud entry for visual impact!
+  // Scrubber index (starts near the cloud entry for visual impact!)
+  const [currentIndex, setCurrentIndex] = useState<number>(1440);
+  
+  // Furthest progress index reached by the live flight so far
+  const [liveMaxIndex, setLiveMaxIndex] = useState<number>(1440);
   
   // Brush range bounds (for the synchronized X-axis)
   const [startIndex, setStartIndex] = useState<number>(0);
-  const [endIndex, setEndIndex] = useState<number>(60);
+  const [endIndex, setEndIndex] = useState<number>(1440);
   
   // Synced hover timeline index across all 9 charts
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // Mapped algorithm determining the trajectory path coloring
-  const [mappedAlgorithmId, setMappedAlgorithmId] = useState<string>('vibrating_cylinder');
+  const [mappedAlgorithmId, setMappedAlgorithmId] = useState<string>('lwc');
 
   // Algorithm category filters for product listing layout
   const [activeTab, setActiveTab] = useState<'all' | 'ordinary' | 'ml' | 'sensor'>('all');
 
   // Tab state for the right workspace panel: 'flight' (飞行监测) or 'icing' (积冰监测)
-  const [rightTab, setRightTab] = useState<'flight' | 'icing'>('flight');
+  const [rightTab, setRightTab] = useState<'flight' | 'icing'>('icing');
 
   // High-density product configuration records (thresholds, custom colors)
   const [configs, setConfigs] = useState<Record<string, ProductConfig>>(() => {
@@ -88,27 +94,53 @@ export default function App() {
     }));
   };
 
-  // Synchronize state when selected flight changes
+  // Synchronize state when selected flight and mode changes
   React.useEffect(() => {
     setStartIndex(0);
-    setEndIndex(flightData.length - 1);
-    if (selectedFlightId === '20260702_B651N_01') {
-      setCurrentIndex(24);
+    const scaleFactor = flightData.length > 200 ? 60 : 1;
+    if (systemMode === 'live') {
+      const initialIdx = selectedFlightId === '20260702_B651N_01' ? 24 * scaleFactor : 30 * scaleFactor;
+      setCurrentIndex(initialIdx);
+      setLiveMaxIndex(initialIdx);
+      setEndIndex(initialIdx);
     } else {
-      setCurrentIndex(30);
+      setEndIndex(flightData.length - 1);
+      if (selectedFlightId === '20260702_B651N_01') {
+        setCurrentIndex(24 * scaleFactor);
+      } else {
+        setCurrentIndex(30 * scaleFactor);
+      }
     }
-  }, [selectedFlightId, flightData.length]);
+  }, [selectedFlightId, flightData, systemMode]);
+
+  // Keep liveMaxIndex and endIndex in sync with progress in live mode
+  React.useEffect(() => {
+    if (systemMode === 'live') {
+      setLiveMaxIndex(prev => {
+        const nextMax = Math.max(prev, currentIndex);
+        setEndIndex(Math.floor(nextMax));
+        return nextMax;
+      });
+    }
+  }, [currentIndex, systemMode]);
 
   const handleResetAll = () => {
     setSystemMode('live');
-    setSelectedFlightId('20260702_B651N_01');
-    setCurrentIndex(24);
+    const defaultFlightId = '20260702_B651N_01';
+    setSelectedFlightId(defaultFlightId);
+    
+    const defaultData = flightDataMap[defaultFlightId] || [];
+    const scaleFactor = defaultData.length > 200 ? 60 : 1;
+    
+    setCurrentIndex(24 * scaleFactor);
     setStartIndex(0);
-    setEndIndex(60);
+    setEndIndex(24 * scaleFactor);
+    setLiveMaxIndex(24 * scaleFactor);
     setHoveredIndex(null);
-    setMappedAlgorithmId('vibrating_cylinder');
+    setMappedAlgorithmId('lwc');
     setActiveTab('all');
-    setRightTab('flight');
+    setRightTab('icing');
+    setIntervalVal('1s');
     
     // reset configs
     const resetRecs: Record<string, ProductConfig> = {};
@@ -138,7 +170,7 @@ export default function App() {
     return flightData.slice(startIndex, endIndex + 1);
   }, [flightData, startIndex, endIndex]);
 
-  const currentPoint = flightData[currentIndex] || flightData[0];
+  const currentPoint = flightData[Math.round(currentIndex)] || flightData[0];
 
   return (
     <div className="min-h-screen w-full bg-[#070708] text-[#E0E0E0] flex items-start justify-center p-6 selection:bg-white selection:text-black font-sans overflow-auto">
@@ -209,12 +241,6 @@ export default function App() {
                       <span>积冰监测</span>
                     </button>
                   </div>
-                  
-                  {/* Active monitoring telemetry node */}
-                  <div className="text-[12px] font-mono text-white/30 flex items-center gap-2">
-                    <span>WORKSTATION: ICING-MONITOR-V4.2</span>
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#34C759] animate-pulse"></span>
-                  </div>
                 </div>
 
                 {/* Tab content body */}
@@ -233,7 +259,7 @@ export default function App() {
                 ) : (
                   <div className="flex-grow overflow-hidden flex flex-col">
                     {/* Core Icing Products Component Grid */}
-                    <div className="grid grid-cols-2 gap-3 flex-grow overflow-y-auto pr-1">
+                    <div className="grid grid-cols-2 gap-3 flex-grow overflow-y-auto pr-1 custom-scrollbar">
                       {filteredAlgorithms.map((algo) => {
                         const isMapped = algo.id === mappedAlgorithmId;
                         const config = configs[algo.id];
@@ -266,7 +292,7 @@ export default function App() {
           </div>
 
           {/* Unified Timeline & Range Brush Component (Spans across all widths) */}
-          <div className="h-[125px] shrink-0">
+          <div className="h-auto pb-1 shrink-0">
             <TimeSlider
               flightData={flightData}
               currentIndex={currentIndex}
@@ -282,6 +308,9 @@ export default function App() {
               }}
               systemMode={systemMode}
               selectedFlightId={selectedFlightId}
+              intervalVal={intervalVal}
+              onChangeInterval={setIntervalVal}
+              liveMaxIndex={liveMaxIndex}
             />
           </div>
 
@@ -295,10 +324,7 @@ export default function App() {
               演示系统状态: 运行正常
             </span>
             <span>数据源: 动态气象仿真数据</span>
-            <span>数据连接频率: 50.4 Hz</span>
-          </div>
-          <div>
-            <span>系统模式: 矢量航线数据映射就绪 (VECTOR_OK)</span>
+            <span>数据更新情况: 正常</span>
           </div>
         </div>
 

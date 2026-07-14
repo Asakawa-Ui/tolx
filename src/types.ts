@@ -32,6 +32,12 @@ export interface IcingAlgorithmDef {
     moderate: number;
     severe: number;
   };
+  levelLabels?: {
+    none: string;
+    light: string;
+    moderate: string;
+    severe: string;
+  };
 }
 
 export interface ProductConfig {

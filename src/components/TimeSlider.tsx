@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FlightDataPoint } from '../types';
-import { Play, Pause, ChevronLeft, ChevronRight, SlidersHorizontal, Eye, Navigation } from 'lucide-react';
+import { Play, Pause, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface TimeSliderProps {
   flightData: FlightDataPoint[];
@@ -11,6 +11,9 @@ interface TimeSliderProps {
   onChangeRange: (start: number, end: number) => void;
   systemMode?: 'live' | 'history';
   selectedFlightId?: string;
+  intervalVal: string;
+  onChangeInterval: (val: string) => void;
+  liveMaxIndex?: number;
 }
 
 export default function TimeSlider({
@@ -21,17 +24,67 @@ export default function TimeSlider({
   endIndex,
   onChangeRange,
   systemMode = 'live',
-  selectedFlightId = 'MU5101'
+  selectedFlightId = 'MU5101',
+  intervalVal,
+  onChangeInterval,
+  liveMaxIndex
 }: TimeSliderProps) {
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1000); // ms per step
+  const [activeDrag, setActiveDrag] = useState<'start' | 'end' | 'current' | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Pause when entering history mode, but do not automatically play when entering live mode
+  useEffect(() => {
+    if (systemMode !== 'live') {
+      setIsPlaying(false);
+    }
+  }, [systemMode]);
+
+  const maxTimelineIndex = systemMode === 'live' && liveMaxIndex !== undefined
+    ? liveMaxIndex
+    : flightData.length - 1;
+
+  // Dynamically compute the resolution step (in seconds) of the flight data points
+  const stepSeconds = useMemo(() => {
+    if (flightData.length < 2) return 60; // default 1 minute (60 seconds)
+    const t0 = flightData[0].timestamp;
+    const t1 = flightData[1].timestamp;
+    const diff = Math.round((t1 - t0) / 1000);
+    return diff > 0 ? diff : 60;
+  }, [flightData]);
+
+  // Compute step size (in index units) based on intervalVal selection and current data resolution
+  const getStepValue = () => {
+    let intervalSeconds = 60; // default '1min'
+    if (intervalVal === '1s') intervalSeconds = 1;
+    else if (intervalVal === '10s') intervalSeconds = 10;
+    else if (intervalVal === '30s') intervalSeconds = 30;
+    else if (intervalVal === '2min') intervalSeconds = 120;
+    else if (intervalVal === '5min') intervalSeconds = 300;
+    else if (intervalVal === '10min') intervalSeconds = 600;
+    
+    return intervalSeconds / stepSeconds;
+  };
+
+  const stepValue = getStepValue();
+
+  const snapToStep = (val: number) => {
+    const rounded = Math.round(val / stepValue) * stepValue;
+    return Math.max(0, Math.min(maxTimelineIndex, rounded));
+  };
 
   // Playback logic
   useEffect(() => {
     if (isPlaying) {
       timerRef.current = setInterval(() => {
-        onSelectIndex((currentIndex + 1) % flightData.length);
+        let nextIndex = currentIndex + stepValue;
+        const maxLimit = systemMode === 'live' ? flightData.length - 1 : maxTimelineIndex;
+        if (nextIndex >= maxLimit) {
+          nextIndex = 0;
+        }
+        onSelectIndex(nextIndex);
       }, playbackSpeed);
     } else {
       if (timerRef.current) {
@@ -42,275 +95,355 @@ export default function TimeSlider({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPlaying, currentIndex, flightData.length, playbackSpeed]);
+  }, [isPlaying, currentIndex, flightData.length, playbackSpeed, onSelectIndex, stepValue, systemMode, maxTimelineIndex]);
+
+  // Pointer dragging logic
+  useEffect(() => {
+    if (activeDrag === null) return;
+
+    let rafId: number | null = null;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      if (!containerRef.current || flightData.length === 0) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const percentage = Math.max(0, Math.min(1, x / rect.width));
+      const targetIndex = snapToStep(percentage * maxTimelineIndex);
+
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+
+      rafId = requestAnimationFrame(() => {
+        if (activeDrag === 'current') {
+          onSelectIndex(targetIndex);
+        } else if (activeDrag === 'start') {
+          const newStart = Math.max(0, Math.min(endIndex - 1, targetIndex));
+          onChangeRange(newStart, endIndex);
+        } else if (activeDrag === 'end') {
+          const newEnd = Math.min(maxTimelineIndex, Math.max(startIndex + 1, targetIndex));
+          onChangeRange(startIndex, newEnd);
+        }
+      });
+    };
+
+    const handlePointerUp = () => {
+      setActiveDrag(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [activeDrag, startIndex, endIndex, flightData.length, onSelectIndex, onChangeRange, stepValue, maxTimelineIndex]);
 
   const handlePrev = () => {
     setIsPlaying(false);
-    onSelectIndex(Math.max(0, currentIndex - 1));
+    onSelectIndex(Math.max(0, currentIndex - stepValue));
   };
 
   const handleNext = () => {
     setIsPlaying(false);
-    onSelectIndex(Math.min(flightData.length - 1, currentIndex + 1));
+    onSelectIndex(Math.min(maxTimelineIndex, currentIndex + stepValue));
   };
 
-  const setRangePreset = (preset: 'all' | 'climb' | 'cloud' | 'descent') => {
-    if (flightData.length === 0) return;
-    const maxIdx = flightData.length - 1;
+  const handleTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!containerRef.current || flightData.length === 0) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, x / rect.width));
+    const targetIndex = snapToStep(percentage * maxTimelineIndex);
+    onSelectIndex(targetIndex);
+    setActiveDrag('current');
+  };
+
+  // Generate high fidelity formatted current time down to second based on float currentIndex
+  const startPt = flightData[0];
+  let displayTime = '---';
+  if (startPt) {
+    const [startHour, startMin, startSec] = startPt.time.split(':').map(Number);
+    const elapsedSeconds = currentIndex * stepSeconds;
+    const totalSeconds = (startHour * 3600) + (startMin * 60) + (startSec || 0) + elapsedSeconds;
     
-    switch (preset) {
-      case 'all':
-        onChangeRange(0, maxIdx);
-        break;
-      case 'climb':
-        onChangeRange(0, Math.min(15, maxIdx));
-        break;
-      case 'cloud':
-        onChangeRange(Math.min(15, maxIdx), Math.min(42, maxIdx));
-        break;
-      case 'descent':
-        onChangeRange(Math.min(45, maxIdx), maxIdx);
-        break;
-    }
-  };
+    const h = Math.floor((totalSeconds / 3600) % 24);
+    const m = Math.floor((totalSeconds / 60) % 60);
+    const s = Math.round(totalSeconds % 60);
+    
+    displayTime = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
 
-  const startPt = flightData[startIndex] || flightData[0];
-  const endPt = flightData[endIndex] || flightData[flightData.length - 1];
-  const currentPt = flightData[currentIndex] || flightData[0];
+  // Memoized Ticks to avoid heavy re-render of hundreds of DOM nodes on every drag frame
+  const ticks = useMemo(() => {
+    const startPt = flightData[0];
+    if (!startPt) return null;
+
+    const [startHour, startMin, startSec] = startPt.time.split(':').map(Number);
+    const startTotalSeconds = (startHour * 3600) + (startMin * 60) + (startSec || 0);
+
+    // Total duration of the current active timeline in seconds
+    const durationSeconds = maxTimelineIndex * stepSeconds;
+
+    if (durationSeconds <= 0) return null;
+
+    // Define tick intervals based on total duration in seconds
+    let majorIntervalSeconds = 600; // default 10 minutes
+    let mediumIntervalSeconds = 120; // default 2 minutes
+    let showSecondsInLabel = false;
+
+    if (durationSeconds <= 15) {
+      majorIntervalSeconds = 2;
+      mediumIntervalSeconds = 1;
+      showSecondsInLabel = true;
+    } else if (durationSeconds <= 45) {
+      majorIntervalSeconds = 5;
+      mediumIntervalSeconds = 1;
+      showSecondsInLabel = true;
+    } else if (durationSeconds <= 90) {
+      majorIntervalSeconds = 10;
+      mediumIntervalSeconds = 2;
+      showSecondsInLabel = true;
+    } else if (durationSeconds <= 180) {
+      majorIntervalSeconds = 30;
+      mediumIntervalSeconds = 5;
+      showSecondsInLabel = true;
+    } else if (durationSeconds <= 300) { // 5 minutes
+      majorIntervalSeconds = 60;
+      mediumIntervalSeconds = 10;
+      showSecondsInLabel = true;
+    } else if (durationSeconds <= 600) { // 10 minutes
+      majorIntervalSeconds = 120; // 2 min
+      mediumIntervalSeconds = 30;
+      showSecondsInLabel = false;
+    } else if (durationSeconds <= 1800) { // 30 minutes
+      majorIntervalSeconds = 300; // 5 min
+      mediumIntervalSeconds = 60; // 1 min
+      showSecondsInLabel = false;
+    } else if (durationSeconds <= 3600) { // 1 hour
+      majorIntervalSeconds = 600; // 10 min
+      mediumIntervalSeconds = 120; // 2 min
+      showSecondsInLabel = false;
+    } else if (durationSeconds <= 10800) { // 3 hours
+      majorIntervalSeconds = 1800; // 30 min
+      mediumIntervalSeconds = 300; // 5 min
+      showSecondsInLabel = false;
+    } else { // longer flights
+      majorIntervalSeconds = 3600; // 1 hour
+      mediumIntervalSeconds = 900; // 15 min
+      showSecondsInLabel = false;
+    }
+
+    // Generate ticks at multiples of mediumIntervalSeconds
+    const tickItems: { elapsed: number; isMajor: boolean; isMedium: boolean }[] = [];
+    
+    // We want the ticks to start at 0 elapsed seconds and go up to durationSeconds.
+    for (let elapsed = 0; elapsed <= durationSeconds; elapsed += mediumIntervalSeconds) {
+      const isMajor = elapsed % majorIntervalSeconds === 0;
+      const isMedium = !isMajor && elapsed % mediumIntervalSeconds === 0;
+      
+      tickItems.push({
+        elapsed,
+        isMajor,
+        isMedium
+      });
+    }
+
+    // Ensure the last point has a tick if it's not already covered
+    const lastElapsed = durationSeconds;
+    const isLastCovered = tickItems.some(t => Math.abs(t.elapsed - lastElapsed) < 0.1);
+    if (!isLastCovered && durationSeconds > 0) {
+      tickItems.push({
+        elapsed: lastElapsed,
+        isMajor: true,
+        isMedium: false
+      });
+    }
+
+    return tickItems.map((tick, idx) => {
+      const percentage = (tick.elapsed / durationSeconds) * 100;
+      const totalSecs = startTotalSeconds + tick.elapsed;
+      
+      const h = Math.floor((totalSecs / 3600) % 24);
+      const m = Math.floor((totalSecs / 60) % 60);
+      const s = Math.round(totalSecs % 60);
+
+      const label = showSecondsInLabel
+        ? `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+        : `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+
+      let tickHeight = "h-3"; // Minor: 12px
+      let tickBg = "bg-white/20";
+      
+      if (tick.isMajor) {
+        tickHeight = "h-12"; // Major: 48px
+        tickBg = "bg-white/70";
+      } else if (tick.isMedium) {
+        tickHeight = "h-8"; // Medium: 32px
+        tickBg = "bg-white/45";
+      }
+
+      return (
+        <div
+          key={idx}
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none"
+          style={{ left: `${percentage}%` }}
+        >
+          <div className={`w-[1px] ${tickHeight} ${tickBg}`}></div>
+          {tick.isMajor && (
+            <span className="absolute top-[28px] text-[10px] text-white/60 font-mono tracking-tighter select-none whitespace-nowrap">
+              {label}
+            </span>
+          )}
+        </div>
+      );
+    });
+  }, [flightData, maxTimelineIndex, stepSeconds]);
 
   return (
-    <div className="bg-[#121214] border border-[#2A2A2C] rounded-sm p-4 space-y-4 font-mono select-none" id="time-slider-container">
-      {/* Playback, Timeline Track, and Telemetry - UNIFIED INTO A SINGLE ROW */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 w-full">
-        {/* Left Side: Playback Control */}
-        <div className="flex items-center gap-3 shrink-0">
-          <div className="flex items-center gap-1 bg-black/40 p-1 border border-[#2A2A2C] rounded-sm">
-            <button
-              onClick={handlePrev}
-              disabled={currentIndex === 0}
-              className="p-1 text-white/50 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent hover:bg-white/10 rounded-sm transition-colors cursor-pointer"
-              title="上一航步"
-            >
-              <ChevronLeft size={16} />
-            </button>
-            
-            <button
-              onClick={() => setIsPlaying(!isPlaying)}
-              className="px-3 py-1 bg-white text-black text-xs font-bold rounded hover:bg-white/90 transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              {isPlaying ? <Pause size={10} className="fill-black" /> : <Play size={10} className="fill-black" />}
-              <span>{isPlaying ? '暂停' : '模拟播放'}</span>
-            </button>
+    <div className="bg-[#121214] border border-[#2A2A2C] rounded-sm p-4 font-mono select-none flex items-center justify-between gap-6" id="time-slider-container">
+      {/* Left Side: Playback Control */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-1 bg-black/40 p-1 border border-[#2A2A2C] rounded-sm">
+          <button
+            onClick={handlePrev}
+            disabled={currentIndex <= 0.0001}
+            className="p-1 text-white/50 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent hover:bg-white/10 rounded-sm transition-colors cursor-pointer"
+            title="上一航步"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          
+          <button
+            onClick={() => setIsPlaying(!isPlaying)}
+            className="p-1.5 bg-white text-black rounded hover:bg-white/90 transition-colors cursor-pointer flex items-center justify-center shadow-sm w-7 h-7"
+            title={isPlaying ? '暂停' : '播放'}
+          >
+            {isPlaying ? <Pause size={12} className="fill-black text-black" /> : <Play size={12} className="fill-black text-black" />}
+          </button>
 
-            <button
-              onClick={handleNext}
-              disabled={currentIndex === flightData.length - 1}
-              className="p-1 text-white/50 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent hover:bg-white/10 rounded-sm transition-colors cursor-pointer"
-              title="下一航步"
-            >
-              <ChevronRight size={16} />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-1.5 text-[12px] text-white/50 border-l border-[#2A2A2C] pl-3">
-            <span>倍速:</span>
-            <select
-              value={playbackSpeed}
-              onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
-              className="bg-black/40 border border-[#2A2A2C] text-white rounded px-1.5 py-0.5 text-[12px] cursor-pointer focus:outline-none"
-            >
-              <option value={2000}>0.5x (2s/步)</option>
-              <option value={1000}>1.0x (1s/步)</option>
-              <option value={400}>2.5x (0.4s/步)</option>
-              <option value={150}>5.0x (0.15s/步)</option>
-            </select>
-          </div>
+          <button
+            onClick={handleNext}
+            disabled={currentIndex >= flightData.length - 1 - 0.0001}
+            className="p-1 text-white/50 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent hover:bg-white/10 rounded-sm transition-colors cursor-pointer"
+            title="下一航步"
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
 
-        {/* Middle: Custom Brushed Timeline Selector (Visual Map with Interactive Click & Ticks) */}
-        <div className="flex-grow relative h-10 flex items-center min-w-[200px] mx-1 md:mx-4">
-          {/* Track representation with interactive slider overlay */}
-          <div className="h-2 w-full bg-black/80 rounded-full border border-[#2A2A2C] relative">
-            {/* Dynamic Icing Active Cloud Zone Highlight */}
-            {(() => {
-              const firstIcingIdx = flightData.findIndex(pt => 
-                Object.values(pt.algorithms).some(algo => algo.level !== 'None')
-              );
-              const lastIcingIdx = [...flightData].reverse().findIndex(pt => 
-                Object.values(pt.algorithms).some(algo => algo.level !== 'None')
-              );
-              const actualLastIcingIdx = lastIcingIdx !== -1 ? (flightData.length - 1 - lastIcingIdx) : -1;
-              
-              if (firstIcingIdx !== -1 && actualLastIcingIdx !== -1 && actualLastIcingIdx >= firstIcingIdx) {
-                const leftPercent = (firstIcingIdx / flightData.length) * 100;
-                const widthPercent = ((actualLastIcingIdx - firstIcingIdx) / flightData.length) * 100;
-                return (
-                  <div 
-                    className="absolute h-full bg-[#FF9F0A]/10 border-l border-r border-[#FF9F0A]/30 opacity-70"
-                    style={{
-                      left: `${leftPercent}%`,
-                      width: `${widthPercent}%`
-                    }}
-                    title="微物理气流积冰区"
-                  >
-                    <span className="absolute -top-4 left-1/2 transform -translate-x-1/2 text-[9px] text-[#FF9F0A]/60 uppercase font-mono tracking-widest whitespace-nowrap">
-                      云带积冰活跃区
-                    </span>
-                  </div>
-                );
-              }
-              return null;
-            })()}
-
-            {/* Selected Active Subrange Brush Highlight */}
-            <div
-              className="absolute h-full bg-white opacity-10 border-l border-r border-zinc-300 pointer-events-none"
-              style={{
-                left: `${(startIndex / flightData.length) * 100}%`,
-                right: `${100 - (endIndex / flightData.length) * 100}%`
-              }}
-            ></div>
-
-            {/* Current scrubber needle */}
-            <div
-              className="absolute h-4 w-1 bg-[#FF3B30] top-1/2 transform -translate-y-1/2 shadow-[0_0_8px_rgba(255,59,48,0.6)] transition-all duration-100 pointer-events-none"
-              style={{
-                left: `${(currentIndex / (flightData.length - 1)) * 100}%`
-              }}
-            >
-              <div className="w-2 h-2 bg-[#FF3B30] rounded-full absolute -top-1 left-1/2 transform -translate-x-1/2"></div>
-            </div>
-
-            {/* Time Ticks (Axiomatic tick scales underneath the track) */}
-            {(() => {
-              const tickIndices = [0, 15, 30, 45, 60];
-              return tickIndices.map((idx) => {
-                const tickPt = flightData[idx];
-                if (!tickPt) return null;
-                const percentage = (idx / (flightData.length - 1)) * 100;
-                return (
-                  <div
-                    key={idx}
-                    className="absolute top-3.5 transform -translate-x-1/2 flex flex-col items-center pointer-events-none"
-                    style={{ left: `${percentage}%` }}
-                  >
-                    <div className="w-[1px] h-1.5 bg-white/30"></div>
-                    <span className="text-[10px] text-white/50 font-mono mt-0.5 tracking-tighter">
-                      {tickPt.time.substring(0, 5)}
-                    </span>
-                  </div>
-                );
-              });
-            })()}
-
-            {/* Invisible Range Input Overlay for Direct Scraping & Clicking */}
-            <input
-              type="range"
-              min={0}
-              max={flightData.length - 1}
-              value={currentIndex}
-              onChange={(e) => onSelectIndex(Number(e.target.value))}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              style={{ top: '-4px', height: '16px' }}
-              title="拖动或点击调整当前飞行时刻"
-            />
-          </div>
+        <div className="flex items-center gap-1.5 text-[12px] text-white/50 border-l border-[#2A2A2C] pl-3">
+          <span>倍速:</span>
+          <select
+            value={playbackSpeed}
+            onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
+            className="bg-black/40 border border-[#2A2A2C] text-white rounded px-1.5 py-0.5 text-[12px] cursor-pointer focus:outline-none"
+          >
+            <option value={1000}>1x</option>
+            <option value={500}>2x</option>
+            <option value={250}>3x</option>
+          </select>
         </div>
 
-        {/* Right Side: Current Active Step Telemetry */}
-        <div className="flex flex-wrap items-center gap-3 text-[12px] shrink-0">
-          <div className="flex items-center gap-1.5 text-white/50">
-            <Navigation size={12} className="text-white/30" />
-            <span>当前时间步 (INDEX):</span>
-            <span className="text-white font-bold bg-black/40 border border-[#2A2A2C] px-2 py-0.5 rounded text-[12px]">
-              #{currentIndex}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 text-white/50">
-            <span>飞行时刻 (UTC):</span>
-            <span className="text-white font-bold bg-black/40 border border-[#2A2A2C] px-2 py-0.5 rounded text-[12px]">
-              {currentPt?.time || '---'}
-            </span>
-          </div>
+        <div className="flex items-center gap-1.5 text-[12px] text-white/50 border-l border-[#2A2A2C] pl-3">
+          <span>间隔:</span>
+          <select
+            value={intervalVal}
+            onChange={(e) => onChangeInterval(e.target.value)}
+            className="bg-black/40 border border-[#2A2A2C] text-white rounded px-1.5 py-0.5 text-[12px] cursor-pointer focus:outline-none"
+          >
+            <option value="1s">1s</option>
+            <option value="10s">10s</option>
+            <option value="30s">30s</option>
+            <option value="1min">1min</option>
+            <option value="2min">2min</option>
+            <option value="5min">5min</option>
+            <option value="10min">10min</option>
+          </select>
         </div>
       </div>
 
-      {/* Double Range Slider Form Elements & Segment presets aligned */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pt-1 border-t border-[#2A2A2C]/40">
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 text-[12px] text-white/50">
-            <span>起始点 index:</span>
-            <input
-              type="range"
-              min={0}
-              max={Math.max(0, endIndex - 1)}
-              value={startIndex}
-              onChange={(e) => onChangeRange(Number(e.target.value), endIndex)}
-              className="w-24 accent-white h-1 bg-[#2A2A2C] rounded-lg cursor-pointer"
-            />
-            <span className="text-[#E0E0E0] font-bold w-4">{startIndex}</span>
+      {/* Right Side: Custom Brushed Timeline Selector (Visual Map with Direct Interactive Handle Dragging) */}
+      <div className="flex-grow relative h-20 flex items-center min-w-[200px] px-10">
+        {/* Track representation */}
+        <div 
+          ref={containerRef}
+          className="h-[2px] w-full bg-[#2A2A2C] relative cursor-pointer"
+          onPointerDown={handleTrackPointerDown}
+        >
+          {/* Selected Active Subrange Brush Highlight - Brighter, richer orange with taller height */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 bg-[#FF9F0A]/25 h-12 border-t border-b border-[#FF9F0A]/60 pointer-events-none"
+            style={{
+              left: `${(startIndex / (maxTimelineIndex || 1)) * 100}%`,
+              width: `${((endIndex - startIndex) / (maxTimelineIndex || 1)) * 100}%`
+            }}
+          ></div>
+
+          {/* Left Drag Handle (startIndex) */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-14 flex items-center justify-center cursor-ew-resize z-30 select-none"
+            style={{
+              left: `${(startIndex / (maxTimelineIndex || 1)) * 100}%`
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setActiveDrag('start');
+            }}
+          >
+            <div className="w-[3px] h-12 bg-[#FF9F0A] rounded-full shadow-[0_0_8px_rgba(255,159,10,0.8)] hover:scale-x-150 transition-transform"></div>
           </div>
 
-          <div className="flex items-center gap-2 text-[12px] text-white/50">
-            <span>截止点 index:</span>
-            <input
-              type="range"
-              min={Math.min(flightData.length - 1, startIndex + 1)}
-              max={flightData.length - 1}
-              value={endIndex}
-              onChange={(e) => onChangeRange(startIndex, Number(e.target.value))}
-              className="w-24 accent-white h-1 bg-[#2A2A2C] rounded-lg cursor-pointer"
-            />
-            <span className="text-[#E0E0E0] font-bold w-4">{endIndex}</span>
+          {/* Right Drag Handle (endIndex) */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-14 flex items-center justify-center cursor-ew-resize z-30 select-none"
+            style={{
+              left: `${(endIndex / (maxTimelineIndex || 1)) * 100}%`
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setActiveDrag('end');
+            }}
+          >
+            <div className="w-[3px] h-12 bg-[#FF9F0A] rounded-full shadow-[0_0_8px_rgba(255,159,10,0.8)] hover:scale-x-150 transition-transform"></div>
           </div>
-        </div>
 
-        {/* Segment presets */}
-        <div className="flex flex-wrap items-center gap-1.5 text-[12px] bg-black/40 px-2.5 py-1 border border-[#2A2A2C] rounded-sm">
-          <span className="text-white/40 uppercase font-bold flex items-center gap-1 text-[11px]">
-            <Eye size={10} />
-            <span>航空航段快捷筛选:</span>
-          </span>
-          <button
-            onClick={() => setRangePreset('all')}
-            className={`px-2 py-0.5 border rounded text-[11px] transition-colors cursor-pointer ${
-              startIndex === 0 && endIndex === flightData.length - 1
-                ? 'bg-[#2A2A2C] text-white border-white/20 font-bold'
-                : 'border-[#2A2A2C] text-white/50 hover:text-white hover:bg-white/5'
-            }`}
+          {/* Current scrubber needle - thin, tall red vertical line */}
+          <div
+            className="absolute h-14 w-[2px] bg-[#FF3B30] top-1/2 transform -translate-y-1/2 shadow-[0_0_8px_rgba(255,59,48,0.5)] pointer-events-none transition-all duration-75 z-20"
+            style={{
+              left: `${(currentIndex / (maxTimelineIndex || 1)) * 100}%`
+            }}
           >
-            全航线段
-          </button>
-          <button
-            onClick={() => setRangePreset('climb')}
-            className={`px-2 py-0.5 border rounded text-[11px] transition-colors cursor-pointer ${
-              startIndex === 0 && endIndex === 15
-                ? 'bg-[#2A2A2C] text-white border-white/20 font-bold'
-                : 'border-[#2A2A2C] text-white/50 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            起飞爬升段
-          </button>
-          <button
-            onClick={() => setRangePreset('cloud')}
-            className={`px-2 py-0.5 border rounded text-[11px] transition-colors cursor-pointer ${
-              startIndex === 15 && endIndex === 42
-                ? 'bg-[#2A2A2C] text-white border-white/20 font-bold'
-                : 'border-[#2A2A2C] text-white/50 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            穿越积冰段
-          </button>
-          <button
-            onClick={() => setRangePreset('descent')}
-            className={`px-2 py-0.5 border rounded text-[11px] transition-colors cursor-pointer ${
-              startIndex === 45 && endIndex === flightData.length - 1
-                ? 'bg-[#2A2A2C] text-white border-white/20 font-bold'
-                : 'border-[#2A2A2C] text-white/50 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            降落着陆段
-          </button>
+            {/* Sleek top cap indicator */}
+            <div className="w-1.5 h-1.5 bg-[#FF3B30] rounded-full absolute -top-0.5 left-1/2 transform -translate-x-1/2 shadow-[0_0_4px_rgba(255,59,48,0.8)]"></div>
+            {/* Sleek bottom cap indicator */}
+            <div className="w-1.5 h-1.5 bg-[#FF3B30] rounded-full absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 shadow-[0_0_4px_rgba(255,59,48,0.8)]"></div>
+
+            {/* Floating current time label centered over needle */}
+            <div className="absolute left-1/2 -top-6 -translate-x-1/2 bg-[#FF3B30] text-white text-[11px] font-mono px-1.5 py-0.5 rounded shadow-[0_2px_6px_rgba(255,59,48,0.5)] whitespace-nowrap pointer-events-none font-bold select-none flex items-center">
+              {displayTime}
+            </div>
+          </div>
+
+          {/* Invisible Drag Handle Target for the Red Scrubber Needle */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-14 flex items-center justify-center cursor-grab active:cursor-grabbing z-40 select-none"
+            style={{
+              left: `${(currentIndex / (maxTimelineIndex || 1)) * 100}%`
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              setActiveDrag('current');
+            }}
+          ></div>
+
+          {/* Time Ticks (大小刻度尺方式 - 贯穿上下) */}
+          {ticks}
         </div>
       </div>
     </div>

@@ -2,85 +2,103 @@ import { IcingAlgorithmDef, FlightDataPoint, AlgorithmOutput } from '../types';
 
 export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
-    id: 'temp_humid',
-    name: '温湿廓线法',
-    type: 'ordinary',
-    unit: '%',
-    minVal: 0,
-    maxVal: 100,
-    defaultThresholds: { light: 30, moderate: 60, severe: 80 }
-  },
-  {
-    id: 'cloud_water',
-    name: '云水含量法',
-    type: 'ordinary',
+    id: 'lwc',
+    name: 'LWC',
+    type: 'sensor',
     unit: 'g/m³',
     minVal: 0,
     maxVal: 2.5,
-    defaultThresholds: { light: 0.5, moderate: 1.2, severe: 1.8 }
+    defaultThresholds: { light: 0.5, moderate: 1.2, severe: 1.8 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
+  },
+  {
+    id: 'time',
+    name: 'Time',
+    type: 'ordinary',
+    unit: 'min',
+    minVal: 0,
+    maxVal: 120,
+    defaultThresholds: { light: 30, moderate: 60, severe: 90 }
+  },
+  {
+    id: 'ic_index',
+    name: 'IC指数',
+    type: 'ordinary',
+    unit: '',
+    minVal: 0,
+    maxVal: 10,
+    defaultThresholds: { light: 3, moderate: 6, severe: 8.5 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
+  },
+  {
+    id: 'ic_improved',
+    name: 'IC改进',
+    type: 'ordinary',
+    unit: '',
+    minVal: 0,
+    maxVal: 10,
+    defaultThresholds: { light: 3, moderate: 6, severe: 8.5 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
+  },
+  {
+    id: 'temp_frost',
+    name: '假霜点温度',
+    type: 'ordinary',
+    unit: '',
+    minVal: -40,
+    maxVal: 10,
+    defaultThresholds: { light: -15, moderate: -5, severe: 5 },
+    levelLabels: { none: '无积冰', light: '有积冰', moderate: '中度以上积冰', severe: '中度以上积冰' }
   },
   {
     id: 'icing_index',
-    name: '积冰指数算法',
+    name: '积冰指数',
     type: 'ordinary',
-    unit: 'Idx',
-    minVal: 0,
-    maxVal: 10,
-    defaultThresholds: { light: 3, moderate: 6, severe: 8.5 }
-  },
-  {
-    id: 'empirical_formula',
-    name: '经验公式法',
-    type: 'ordinary',
-    unit: 'K',
+    unit: '',
     minVal: 0,
     maxVal: 100,
-    defaultThresholds: { light: 25, moderate: 55, severe: 75 }
+    defaultThresholds: { light: 25, moderate: 50, severe: 75 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '轻-中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'random_forest',
-    name: '随机森林预测器',
+    id: 'xgb1',
+    name: 'XGB1',
     type: 'ml',
-    unit: 'Prob',
+    unit: '',
     minVal: 0,
     maxVal: 1,
-    defaultThresholds: { light: 0.25, moderate: 0.55, severe: 0.8 }
+    defaultThresholds: { light: 0.25, moderate: 0.55, severe: 0.8 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'lightgbm',
-    name: 'LightGBM分类器',
+    id: 'xgb2',
+    name: 'XGB2',
     type: 'ml',
-    unit: 'Prob',
+    unit: '',
     minVal: 0,
     maxVal: 1,
-    defaultThresholds: { light: 0.3, moderate: 0.6, severe: 0.85 }
+    defaultThresholds: { light: 0.3, moderate: 0.6, severe: 0.85 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'deep_neural',
-    name: '深度神经网络模型',
+    id: 'xgb3',
+    name: 'XGB3',
     type: 'ml',
-    unit: 'Score',
+    unit: '',
     minVal: 0,
-    maxVal: 100,
-    defaultThresholds: { light: 35, moderate: 65, severe: 85 }
+    maxVal: 1,
+    defaultThresholds: { light: 0.2, moderate: 0.5, severe: 0.75 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'svm',
-    name: '支持向量机评估器',
+    id: 'xgb4',
+    name: 'XGB4',
     type: 'ml',
-    unit: 'Score',
+    unit: '',
     minVal: 0,
-    maxVal: 10,
-    defaultThresholds: { light: 3, moderate: 6, severe: 8.5 }
-  },
-  {
-    id: 'vibrating_cylinder',
-    name: '振动圆柱传感器',
-    type: 'sensor',
-    unit: 'mm',
-    minVal: 0,
-    maxVal: 5,
-    defaultThresholds: { light: 0.8, moderate: 2.2, severe: 3.8 }
+    maxVal: 1,
+    defaultThresholds: { light: 0.35, moderate: 0.65, severe: 0.85 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   }
 ];
 
@@ -88,14 +106,22 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
 export function generateFlightData(
   startHour: number = 12,
   startMin: number = 0,
-  icingSeverity: 'none' | 'light' | 'heavy' = 'heavy'
+  icingSeverity: 'none' | 'light' | 'heavy' = 'heavy',
+  durationHours: number = 1,
+  stepSeconds: number = 60
 ): FlightDataPoint[] {
   const points: FlightDataPoint[] = [];
   const startLat = 31.1433;
   const startLng = 121.8053;
   const endLat = 40.0801;
   const endLng = 116.5845;
-  const totalSteps = 60;
+  
+  const totalDurationSeconds = durationHours * 3600;
+  const totalSteps = Math.floor(totalDurationSeconds / stepSeconds);
+
+  const climbSteps = Math.round(totalSteps * 0.25);
+  const descendSteps = Math.round(totalSteps * 0.20);
+  const cruiseEnd = totalSteps - descendSteps;
 
   for (let i = 0; i <= totalSteps; i++) {
     const fraction = i / totalSteps;
@@ -108,33 +134,37 @@ export function generateFlightData(
     const lat = rawLat + Math.sin(fraction * Math.PI * 6 + seedOffset) * 0.04;
     const lng = rawLng + Math.cos(fraction * Math.PI * 6 + seedOffset) * 0.04;
 
-    // Time generation (starts at custom hour/min, 1-minute steps)
-    const totalMinutes = startMin + i;
-    const hour = (startHour + Math.floor(totalMinutes / 60)) % 24;
-    const min = totalMinutes % 60;
-    const timeStr = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:00`;
-    const timestamp = 1783771200000 + (startHour * 3600 + totalMinutes * 60) * 1000;
+    const elapsedSeconds = i * stepSeconds;
+    const elapsedMinutes = elapsedSeconds / 60;
+
+    // Time generation (starts at custom hour/min, dynamic stepSeconds)
+    const totalSeconds = startMin * 60 + elapsedSeconds;
+    const hour = (startHour + Math.floor(totalSeconds / 3600)) % 24;
+    const min = Math.floor((totalSeconds % 3600) / 60);
+    const sec = totalSeconds % 60;
+    const timeStr = `${hour.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+    const timestamp = 1783771200000 + (startHour * 3600 + startMin * 60 + elapsedSeconds) * 1000;
 
     // Altitude profile: climb, cruise at 7500m, descend
     let altitude = 1500;
-    if (i < 15) {
-      altitude = 1500 + (6000 * (i / 15)); // climb to 7500m
-    } else if (i <= 48) {
-      altitude = 7500 + Math.sin(i * 0.5 + seedOffset) * 50; // cruise
+    if (i < climbSteps) {
+      altitude = 1500 + (6000 * (i / climbSteps)); // climb to 7500m
+    } else if (i <= cruiseEnd) {
+      altitude = 7500 + Math.sin(elapsedMinutes * 0.5 + seedOffset) * 50; // cruise
     } else {
-      altitude = 7500 - (6000 * ((i - 48) / (totalSteps - 48))); // descend
+      altitude = 7500 - (6000 * ((i - cruiseEnd) / descendSteps)); // descend
     }
 
     // Speed profile: weather modification aircraft max speed between 400-500km/h (e.g. cruise at 440km/h)
     let speed = 440;
-    if (i < 15) {
-      speed = 360 + (80 * (i / 15)); // climbs from 360 to 440
-    } else if (i > 48) {
-      speed = 440 - (120 * ((i - 48) / (totalSteps - 48))); // descends from 440 to 320
+    if (i < climbSteps) {
+      speed = 360 + (80 * (i / climbSteps)); // climbs from 360 to 440
+    } else if (i > cruiseEnd) {
+      speed = 440 - (120 * ((i - cruiseEnd) / descendSteps)); // descends from 440 to 320
     }
     // Add small realistic speed fluctuations (+- 4 km/h) during cruise
-    if (i >= 15 && i <= 48) {
-      speed += Math.sin(i * 0.8 + seedOffset) * 4;
+    if (i >= climbSteps && i <= cruiseEnd) {
+      speed += Math.sin(elapsedMinutes * 0.8 + seedOffset) * 4;
     }
 
     // Heading calculation (from current point to next, approx 325 degrees)
@@ -156,17 +186,21 @@ export function generateFlightData(
     let cloudIntensity = 0;
     
     if (icingSeverity === 'heavy') {
-      inCloud = i >= 16 && i <= 42;
+      const startCloud = Math.round(totalSteps * 0.267);
+      const endCloud = Math.round(totalSteps * 0.70);
+      inCloud = i >= startCloud && i <= endCloud;
       if (inCloud) {
-        const center = 29;
-        const width = 13;
+        const center = totalSteps * 0.483;
+        const width = totalSteps * 0.217;
         cloudIntensity = Math.max(0, 1 - Math.pow((i - center) / width, 2));
       }
     } else if (icingSeverity === 'light') {
-      inCloud = i >= 20 && i <= 38;
+      const startCloud = Math.round(totalSteps * 0.333);
+      const endCloud = Math.round(totalSteps * 0.633);
+      inCloud = i >= startCloud && i <= endCloud;
       if (inCloud) {
-        const center = 29;
-        const width = 9;
+        const center = totalSteps * 0.483;
+        const width = totalSteps * 0.150;
         cloudIntensity = Math.max(0, 0.45 - 0.45 * Math.pow((i - center) / width, 2));
       }
     } else {
@@ -181,49 +215,55 @@ export function generateFlightData(
       let value = 0;
       if (inCloud) {
         // Each algorithm responds differently to mimic real-world variance
-        let noise = Math.sin(i * 1.5) * 0.08; // algorithmic noise
+        let noise = Math.sin(elapsedMinutes * 1.5) * 0.08; // algorithmic noise
         
-        if (algo.id === 'temp_humid') {
-          // Temperature-Humidity responds quickly and plateaus
-          value = Math.min(100, (cloudIntensity * 75 + 15) + noise * 10);
-        } else if (algo.id === 'cloud_water') {
-          // Cloud water content matches the core concentration
+        if (algo.id === 'lwc') {
           value = Math.max(0, Math.min(2.5, cloudIntensity * 2.1 + noise * 0.15));
-        } else if (algo.id === 'icing_index') {
+        } else if (algo.id === 'time') {
+          value = Math.min(120, (cloudIntensity * 90 + 10) + noise * 10);
+        } else if (algo.id === 'ic_index') {
           value = Math.max(0, Math.min(10, cloudIntensity * 8.5 + noise * 0.5));
-        } else if (algo.id === 'empirical_formula') {
-          value = Math.max(0, Math.min(100, cloudIntensity * 80 + noise * 12));
-        } else if (algo.id === 'random_forest') {
-          value = Math.max(0, Math.min(1, cloudIntensity * 0.88 + Math.cos(i * 0.8) * 0.02));
-        } else if (algo.id === 'lightgbm') {
+        } else if (algo.id === 'ic_improved') {
+          value = Math.max(0, Math.min(10, cloudIntensity * 8.2 + Math.cos(elapsedMinutes) * 0.4));
+        } else if (algo.id === 'temp_frost') {
+          value = Math.max(-40, Math.min(10, (cloudIntensity * 40 - 35) + noise * 5));
+        } else if (algo.id === 'icing_index') {
+          value = Math.max(0, Math.min(100, cloudIntensity * 85 + noise * 12));
+        } else if (algo.id === 'xgb1') {
+          value = Math.max(0, Math.min(1, cloudIntensity * 0.88 + Math.cos(elapsedMinutes * 0.8) * 0.02));
+        } else if (algo.id === 'xgb2') {
           value = Math.max(0, Math.min(1, Math.pow(cloudIntensity, 1.2) * 0.92 + noise * 0.04));
-        } else if (algo.id === 'deep_neural') {
-          value = Math.max(0, Math.min(100, cloudIntensity * 90 + Math.sin(i) * 3));
-        } else if (algo.id === 'svm') {
-          value = Math.max(0, Math.min(10, cloudIntensity * 8.2 + Math.cos(i) * 0.3));
-        } else if (algo.id === 'vibrating_cylinder') {
-          // Physical sensor integrates/accumulates ice, then decreases when heater turns on
-          if (i < 32) {
-            const durationInCloud = i - (icingSeverity === 'heavy' ? 16 : 20);
-            value = Math.max(0, Math.min(4.8, (durationInCloud * 0.22) + noise * 0.1));
-          } else if (i >= 32 && i <= 34) {
-            value = Math.max(0.2, 4.2 - (i - 31) * 1.8);
+        } else if (algo.id === 'xgb3') {
+          value = Math.max(0, Math.min(1, cloudIntensity * 0.85 + Math.sin(elapsedMinutes * 1.1) * 0.03));
+        } else if (algo.id === 'xgb4') {
+          // Keep physical sensor-like growth or simulation
+          const deiceStart = Math.round(totalSteps * 0.533);
+          const deiceEnd = Math.round(totalSteps * 0.567);
+          const startCloud = icingSeverity === 'heavy' ? Math.round(totalSteps * 0.267) : Math.round(totalSteps * 0.333);
+          if (i < deiceStart) {
+            const durationInCloud = i - startCloud;
+            const growthRate = 0.045 * (60 / totalSteps);
+            value = Math.max(0, Math.min(0.95, (durationInCloud * growthRate) + noise * 0.02));
+          } else if (i >= deiceStart && i <= deiceEnd) {
+            const deiceProgress = (i - (deiceStart - 1)) / (deiceEnd - deiceStart + 1);
+            value = Math.max(0.04, 0.85 - deiceProgress * 0.8);
           } else {
-            value = Math.max(0.2, 0.4 + (cloudIntensity * 1.5));
+            value = Math.max(0.04, 0.08 + (cloudIntensity * 0.3));
           }
         }
       } else {
         // Out of cloud, very low background values or zero
-        const randomNoise = Math.sin(i + seedOffset);
-        if (algo.id === 'temp_humid') value = 5 + Math.abs(randomNoise) * 5;
-        else if (algo.id === 'cloud_water') value = 0.02 + Math.abs(randomNoise) * 0.04;
-        else if (algo.id === 'icing_index') value = 0.1 + Math.abs(randomNoise) * 0.2;
-        else if (algo.id === 'empirical_formula') value = 8 + Math.abs(randomNoise) * 4;
-        else if (algo.id === 'random_forest') value = 0.02 + Math.abs(randomNoise) * 0.03;
-        else if (algo.id === 'lightgbm') value = 0.01 + Math.abs(randomNoise) * 0.02;
-        else if (algo.id === 'deep_neural') value = 4 + Math.abs(randomNoise) * 3;
-        else if (algo.id === 'svm') value = 0.2 + Math.abs(randomNoise) * 0.2;
-        else if (algo.id === 'vibrating_cylinder') value = 0.0;
+        const randomNoise = Math.sin(elapsedMinutes + seedOffset);
+        if (algo.id === 'lwc') value = 0.02 + Math.abs(randomNoise) * 0.04;
+        else if (algo.id === 'time') value = 5 + Math.abs(randomNoise) * 5;
+        else if (algo.id === 'ic_index') value = 0.1 + Math.abs(randomNoise) * 0.2;
+        else if (algo.id === 'ic_improved') value = 0.1 + Math.abs(randomNoise) * 0.15;
+        else if (algo.id === 'temp_frost') value = -35 + Math.abs(randomNoise) * 3;
+        else if (algo.id === 'icing_index') value = 8 + Math.abs(randomNoise) * 4;
+        else if (algo.id === 'xgb1') value = 0.02 + Math.abs(randomNoise) * 0.03;
+        else if (algo.id === 'xgb2') value = 0.01 + Math.abs(randomNoise) * 0.02;
+        else if (algo.id === 'xgb3') value = 0.02 + Math.abs(randomNoise) * 0.03;
+        else if (algo.id === 'xgb4') value = 0.01 + Math.abs(randomNoise) * 0.02;
       }
 
       // Round to nice decimals

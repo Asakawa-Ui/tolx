@@ -273,7 +273,7 @@ export default function FlightMap({
 
   const centerOnAircraft = () => {
     if (flightData.length === 0) return;
-    const current = flightData[currentIndex];
+    const current = flightData[Math.round(currentIndex)] || flightData[0];
     const proj = project(current.latitude, current.longitude);
     
     // Calculate pan coordinates to put aircraft in the center of the viewport
@@ -319,7 +319,7 @@ export default function FlightMap({
     return `${i === 0 ? 'M' : 'L'} ${proj.x} ${proj.y}`;
   }).join(' ');
 
-  const currentAircraft = flightData[currentIndex] || flightData[0];
+  const currentAircraft = flightData[Math.round(currentIndex)] || flightData[0];
   const aircraftPos = project(currentAircraft.latitude, currentAircraft.longitude);
 
   // Maximum Flyable distance calculations
@@ -560,13 +560,13 @@ export default function FlightMap({
             {/* Flight Trajectory Track (Icing Risk Color mapping) */}
             {flightData.slice(0, -1).map((pt, idx) => {
               // In live mode, do not render future path segments at all!
-              if (systemMode === 'live' && pt.id >= currentIndex) return null;
+              if (systemMode === 'live' && pt.id >= Math.round(currentIndex)) return null;
 
               const nextPt = flightData[idx + 1];
               const p1 = project(pt.latitude, pt.longitude);
               const p2 = project(nextPt.latitude, nextPt.longitude);
               const segmentColor = getRiskColor(pt);
-              const isCurrentSegment = idx === currentIndex - 1;
+              const isCurrentSegment = idx === Math.round(currentIndex) - 1;
 
               return (
                 <line
@@ -576,11 +576,11 @@ export default function FlightMap({
                   x2={p2.x}
                   y2={p2.y}
                   stroke={segmentColor}
-                  strokeWidth={pt.id <= currentIndex ? (isCurrentSegment ? 4 : 2.5) : 1}
-                  strokeDasharray={pt.id <= currentIndex ? undefined : "3 3"}
+                  strokeWidth={pt.id <= Math.round(currentIndex) ? (isCurrentSegment ? 4 : 2.5) : 1}
+                  strokeDasharray={pt.id <= Math.round(currentIndex) ? undefined : "3 3"}
                   strokeLinecap="round"
                   className="transition-all duration-300"
-                  opacity={pt.id <= currentIndex ? 1 : 0.25}
+                  opacity={pt.id <= Math.round(currentIndex) ? 1 : 0.25}
                 />
               );
             })}
@@ -588,18 +588,23 @@ export default function FlightMap({
             {/* Interactive dots along the flight track */}
             {flightData.map((pt) => {
               // In live mode, do not render future path dots at all!
-              if (systemMode === 'live' && pt.id > currentIndex) return null;
+              if (systemMode === 'live' && pt.id > Math.round(currentIndex)) return null;
 
               // Hide the dot underneath the airplane icon to avoid visual redundancy
-              if (pt.id === currentIndex) return null;
+              if (pt.id === Math.round(currentIndex)) return null;
 
               const pos = project(pt.latitude, pt.longitude);
-              const isPassed = pt.id <= currentIndex;
-              const isCurrent = pt.id === currentIndex;
+              const isPassed = pt.id <= Math.round(currentIndex);
+              const isCurrent = pt.id === Math.round(currentIndex);
               const pointColor = getRiskColor(pt);
 
-              // Don't render all dots if zoomed far out to save drawing density
-              if (pt.id % (zoom > 1.5 ? 1 : 2) !== 0 && !isCurrent) return null;
+              // Compute downsampling step based on flight data resolution
+              const isHighRes = flightData.length > 200;
+              const baseMod = isHighRes ? 60 : 1;
+              const zoomFactor = zoom > 1.5 ? 1 : 2;
+              const renderMod = baseMod * zoomFactor;
+
+              if (pt.id % renderMod !== 0 && !isCurrent) return null;
 
               return (
                 <circle
@@ -623,7 +628,7 @@ export default function FlightMap({
             })}
 
             {/* Current Airplane Icon and Rotation Heading */}
-            {flightData[currentIndex] && (
+            {flightData[Math.round(currentIndex)] && (
               <g transform={`translate(${aircraftPos.x}, ${aircraftPos.y})`}>
                 {/* Rotating Aircraft symbol */}
                 <g transform={`rotate(${currentAircraft.heading})`}>
@@ -642,7 +647,7 @@ export default function FlightMap({
             )}
 
             {/* Maximum Flyable Segment Projection Line */}
-            {flightData[currentIndex] && (() => {
+            {flightData[Math.round(currentIndex)] && (() => {
               const displayDistance = currentAircraft.maxDistance >= 100 ? "≥100km" : `${currentAircraft.maxDistance} km`;
               
               const dirX = Math.cos(headingRad);
@@ -1006,12 +1011,12 @@ export default function FlightMap({
                       <button
                         type="button"
                         onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                        className="w-[63%] text-left hover:text-white transition-colors flex items-center gap-0.5 cursor-pointer select-none"
+                        className="w-[63%] hover:text-white transition-colors flex justify-center items-center gap-0.5 cursor-pointer select-none"
                       >
                         架次编号 {sortOrder === 'desc' ? '▼' : '▲'}
                       </button>
-                      <span className="w-[22%] text-right">起飞时间</span>
-                      <span className="w-[15%] text-right">总时长</span>
+                      <span className="w-[22%] text-center">起飞时间</span>
+                      <span className="w-[15%] text-center">总时长</span>
                     </div>
 
                     {/* Scrollable List Body */}
@@ -1035,14 +1040,14 @@ export default function FlightMap({
                                   : 'bg-transparent text-white/50 hover:bg-white/5 hover:text-white border-l-2 border-transparent'
                               }`}
                             >
-                              <span className={`w-[63%] text-left text-[11px] font-mono tracking-wide truncate ${isSelected ? 'text-[#0A84FF]' : 'text-white/80'}`}>
+                              <span className={`w-[63%] text-center text-[11px] font-mono tracking-wide truncate ${isSelected ? 'text-[#0A84FF]' : 'text-white/80'}`}>
                                 {f.id}
                               </span>
-                              <span className="w-[22%] text-right text-[10.5px] font-mono text-white/60">
+                              <span className="w-[22%] text-center text-[10.5px] font-mono text-white/60">
                                 {timeFormatted}
                               </span>
-                              <span className="w-[15%] text-right text-[10.5px] font-mono text-white/60">
-                                {f.durationHours}h
+                              <span className="w-[15%] text-center text-[10.5px] font-mono text-white/60">
+                                {Number(f.durationHours.toFixed(2))}h
                               </span>
                             </button>
                           );

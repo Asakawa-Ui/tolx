@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { FlightDataPoint, IcingAlgorithmDef, ProductConfig } from '../types';
-import { LineChart, BarChart2, Check, Download, MapPin, Eye, Sliders, Layers, RefreshCw } from 'lucide-react';
+import { LineChart, BarChart2, Check, Download, MapPin, Eye, Sliders, Layers, RefreshCw, ChevronDown } from 'lucide-react';
 
 interface ProductCardProps {
   key?: React.Key | string;
@@ -35,6 +35,7 @@ export default function ProductCard({
   const [chartMode, setChartMode] = useState<'line' | 'scatter'>('scatter');
   const [showConfig, setShowConfig] = useState<boolean>(false);
   const [maxDistanceLimit, setMaxDistanceLimit] = useState<number>(100);
+  const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
 
   // Configuration forms
   const [thLight, setThLight] = useState<number>(config.thresholds.light);
@@ -192,7 +193,8 @@ export default function ProductCard({
   // Calculations for Maximum Flyable Distance projection
   const latestVisiblePt = useMemo(() => {
     // Find latest data point in visible data that is <= current timestamp or simply currentAircraft
-    return chartData.find(pt => pt.id === currentIndex) || chartData[chartData.length - 1];
+    const roundedIndex = Math.round(currentIndex);
+    return chartData.find(pt => pt.id === roundedIndex) || chartData[chartData.length - 1];
   }, [chartData, currentIndex]);
 
   const maxDistanceLineData = useMemo(() => {
@@ -209,13 +211,20 @@ export default function ProductCard({
     const effectiveDistance = Math.min(latestVisiblePt.maxDistance, maxDistanceLimit);
     const flightTimeMinutes = (effectiveDistance / speed) * 60;
     
+    // Dynamically compute the resolution step (in seconds) of the flight data points
+    const stepSeconds = (() => {
+      if (chartData.length < 2) return 60;
+      const t0 = chartData[0].timestamp;
+      const t1 = chartData[1].timestamp;
+      const diff = Math.round((t1 - t0) / 1000);
+      return diff > 0 ? diff : 60;
+    })();
+
     // Map this flight time forward to X-axis
-    // 1 step in flightData = 1 minute.
-    // Find how many pixels 1 minute represents
-    const numPoints = chartData.length;
-    const totalMinutes = numPoints; // assuming 1 minute per step
-    const pxPerMinute = innerWidth / totalMinutes;
-    const lineLengthPx = flightTimeMinutes * pxPerMinute;
+    // Find how many pixels the flight duration represents based on the data resolution
+    const flightTimeSteps = (flightTimeMinutes * 60) / stepSeconds;
+    const chartSteps = chartData.length || 1;
+    const lineLengthPx = (flightTimeSteps / chartSteps) * innerWidth;
 
     const endX = Math.min(chartWidth - 12, startX + lineLengthPx);
 
@@ -273,6 +282,15 @@ export default function ProductCard({
     const svgElement = document.getElementById(`svg-chart-${algorithm.id}`);
     if (!svgElement) return;
 
+    // We can make a taller canvas to fit:
+    // - Title at the top (y: 20px)
+    // - The SVG chart itself (y: 35px)
+    // - Legends at the bottom (y: 185px)
+    const extraTop = 30;
+    const extraBottom = 30;
+    const canvasWidth = chartWidth;
+    const canvasHeight = chartHeight + extraTop + extraBottom;
+
     const svgString = new XMLSerializer().serializeToString(svgElement);
     const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     const blobURL = window.URL.createObjectURL(blob);
@@ -280,14 +298,69 @@ export default function ProductCard({
     const image = document.createElement('img');
     image.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = chartWidth * 2; // high resolution
-      canvas.height = chartHeight * 2;
+      canvas.width = canvasWidth * 2; // high resolution scale
+      canvas.height = canvasHeight * 2;
       const context = canvas.getContext('2d');
       if (context) {
         context.scale(2, 2);
+        
+        // Background
         context.fillStyle = '#09090b'; // dark bg
-        context.fillRect(0, 0, chartWidth, chartHeight);
-        context.drawImage(image, 0, 0);
+        context.fillRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw the Title (Algorithm Name) at the top
+        context.fillStyle = '#E0E0E0';
+        context.font = 'bold 12px "Inter", "Helvetica Neue", sans-serif';
+        context.fillText(algorithm.name.toUpperCase(), 12, 18);
+        
+        // Draw the SVG chart in the middle
+        context.drawImage(image, 0, extraTop);
+        
+        // Draw the Legends at the bottom
+        let startX = 12;
+        const legendY = canvasHeight - 12;
+        context.font = '10px "Inter", "Helvetica Neue", monospace';
+        
+        // Helper to draw a circle for color indicators
+        const drawCircle = (color: string, text: string) => {
+          context.fillStyle = color;
+          context.beginPath();
+          context.arc(startX + 4, legendY - 3, 3, 0, 2 * Math.PI);
+          context.fill();
+          
+          context.fillStyle = 'rgba(255, 255, 255, 0.4)';
+          context.fillText(text, startX + 12, legendY);
+          startX += context.measureText(text).width + 24;
+        };
+        
+        const labelNone = (algorithm.levelLabels?.none || '无风险').replace('积冰', '');
+        const labelLight = (algorithm.levelLabels?.light || '轻度').replace('积冰', '');
+        const labelModerate = (algorithm.levelLabels?.moderate || '中度').replace('积冰', '');
+        const labelSevere = (algorithm.levelLabels?.severe || '重度').replace('积冰', '');
+
+        drawCircle(colorNone, labelNone);
+        drawCircle(colorLight, labelLight);
+        drawCircle(colorModerate, labelModerate);
+        drawCircle(colorSevere, labelSevere);
+        
+        // Draw "最大航行距离" legend
+        if (maxDistanceLineData) {
+          context.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          context.lineWidth = 1;
+          context.beginPath();
+          // Draw a small vertical line (前一竖) and arrow
+          context.moveTo(startX, legendY - 8);
+          context.lineTo(startX, legendY);
+          context.moveTo(startX, legendY - 4);
+          context.lineTo(startX + 8, legendY - 4);
+          context.lineTo(startX + 5, legendY - 7);
+          context.moveTo(startX + 8, legendY - 4);
+          context.lineTo(startX + 5, legendY - 1);
+          context.stroke();
+          
+          context.fillStyle = 'rgba(255, 255, 255, 0.6)';
+          context.fillText(`最大航行距离 ${maxDistanceLineData.capped ? `(≥${maxDistanceLimit}km)` : ''}`, startX + 14, legendY);
+        }
         
         const pngURL = canvas.toDataURL('image/png');
         const downloadLink = document.createElement('a');
@@ -297,6 +370,7 @@ export default function ProductCard({
         downloadLink.click();
         document.body.removeChild(downloadLink);
       }
+      window.URL.revokeObjectURL(blobURL);
     };
     image.src = blobURL;
   };
@@ -314,11 +388,6 @@ export default function ProductCard({
           <div>
             <h3 className="text-[16px] font-sans font-bold text-[#E0E0E0] flex items-center gap-1.5 uppercase">
               {algorithm.name}
-              {isMappedOnMap && (
-                <span className="text-[12px] bg-white text-black px-1.5 py-0.5 rounded-sm select-none tracking-tight font-bold">
-                  已映射到地图
-                </span>
-              )}
             </h3>
           </div>
         </div>
@@ -378,10 +447,10 @@ export default function ProductCard({
             <div className="grid grid-cols-2 gap-4">
               {/* Threshold bounds */}
               <div className="space-y-3.5 border-r border-[#2A2A2C] pr-4">
-                <div className="text-[12px] text-white/40 uppercase font-bold tracking-wider">分级阈值 ({algorithm.unit})</div>
+                <div className="text-[12px] text-white/40 uppercase font-bold tracking-wider">分级阈值 {algorithm.unit ? `(${algorithm.unit})` : ''}</div>
                 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9F0A] text-xs font-semibold">轻度 (Light) ≥</span>
+                  <span className="text-[#FF9F0A] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度'} ≥</span>
                   <input
                     type="number"
                     step={algorithm.maxVal <= 10 ? "0.1" : "1"}
@@ -392,7 +461,7 @@ export default function ProductCard({
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9500] text-xs font-semibold">中度 (Mod) ≥</span>
+                  <span className="text-[#FF9500] text-xs font-semibold">{algorithm.levelLabels?.moderate || '中度'} ≥</span>
                   <input
                     type="number"
                     step={algorithm.maxVal <= 10 ? "0.1" : "1"}
@@ -403,7 +472,7 @@ export default function ProductCard({
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF3B30] text-xs font-semibold">重度 (Sev) ≥</span>
+                  <span className="text-[#FF3B30] text-xs font-semibold">{algorithm.levelLabels?.severe || '重度'} ≥</span>
                   <input
                     type="number"
                     step={algorithm.maxVal <= 10 ? "0.1" : "1"}
@@ -419,7 +488,7 @@ export default function ProductCard({
                 <div className="text-[12px] text-white/40 uppercase font-bold tracking-wider">雷达/轨迹颜色</div>
                 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-white/40 text-xs">无风险 (None)</span>
+                  <span className="text-white/40 text-xs">{algorithm.levelLabels?.none || '无风险'}</span>
                   <input
                     type="color"
                     value={colorNone}
@@ -429,7 +498,7 @@ export default function ProductCard({
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9F0A] text-xs font-semibold">轻度积冰</span>
+                  <span className="text-[#FF9F0A] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度积冰'}</span>
                   <input
                     type="color"
                     value={colorLight}
@@ -439,7 +508,7 @@ export default function ProductCard({
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9500] text-xs font-semibold">中度积冰</span>
+                  <span className="text-[#FF9500] text-xs font-semibold">{algorithm.levelLabels?.moderate || '中度积冰'}</span>
                   <input
                     type="color"
                     value={colorModerate}
@@ -449,7 +518,7 @@ export default function ProductCard({
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF3B30] text-xs font-semibold">极重积冰</span>
+                  <span className="text-[#FF3B30] text-xs font-semibold">{algorithm.levelLabels?.severe || '重度积冰'}</span>
                   <input
                     type="color"
                     value={colorSevere}
@@ -557,17 +626,6 @@ export default function ProductCard({
               fill="rgba(255, 255, 255, 0.02)"
               pointerEvents="none"
             />
-            <text
-              x={chartWidth - paddingRight + 6}
-              y={paddingTop + 10}
-              fill="rgba(255, 255, 255, 0.25)"
-              fontSize={9}
-              fontFamily="monospace"
-              fontWeight="bold"
-              textAnchor="start"
-            >
-              航程外推区 (PROJ)
-            </text>
           </g>
 
           {/* Chart Core Lines / Dots */}
@@ -677,8 +735,9 @@ export default function ProductCard({
 
           {/* Timeline current point marker */}
           {(() => {
-            const xCoord = getXCoordFromDataIndex(currentIndex);
-            const pt = chartData.find(p => p.id === currentIndex);
+            const roundedIndex = Math.round(currentIndex);
+            const xCoord = getXCoordFromDataIndex(roundedIndex);
+            const pt = chartData.find(p => p.id === roundedIndex);
             if (xCoord === null || !pt) return null;
             const val = pt.algorithms[algorithm.id]?.value ?? 0;
             return (
@@ -802,10 +861,10 @@ export default function ProductCard({
           if (!output) return null;
 
           let color = colorNone;
-          let label = '无风险';
-          if (output.value >= thSevere) { color = colorSevere; label = '极重积冰'; }
-          else if (output.value >= thModerate) { color = colorModerate; label = '中度积冰'; }
-          else if (output.value >= thLight) { color = colorLight; label = '轻度积冰'; }
+          let label = algorithm.levelLabels?.none || '无风险';
+          if (output.value >= thSevere) { color = colorSevere; label = algorithm.levelLabels?.severe || '重度积冰'; }
+          else if (output.value >= thModerate) { color = colorModerate; label = algorithm.levelLabels?.moderate || '中度积冰'; }
+          else if (output.value >= thLight) { color = colorLight; label = algorithm.levelLabels?.light || '轻度积冰'; }
 
           const isLeftHalf = chartData.findIndex(p => p.id === hoveredIndex) < chartData.length / 2;
 
@@ -833,46 +892,73 @@ export default function ProductCard({
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-white/40">
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorNone }}></span>
-            <span>无风险</span>
+            <span>{(algorithm.levelLabels?.none || '无风险').replace('积冰', '')}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLight }}></span>
-            <span>轻度</span>
+            <span>{(algorithm.levelLabels?.light || '轻度').replace('积冰', '')}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorModerate }}></span>
-            <span>中度</span>
+            <span>{(algorithm.levelLabels?.moderate || '中度').replace('积冰', '')}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorSevere }}></span>
-            <span>重度</span>
+            <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '')}</span>
           </div>
           {maxDistanceLineData && (
-            <div className="flex items-center gap-1 text-white/60 font-bold border-l border-[#2A2A2C] pl-2">
-              <span className="w-3 h-0.2 border-t border-dashed border-white inline-block"></span>
-              <span>航程线 {maxDistanceLineData.capped ? `(≥${maxDistanceLimit}km)` : ''}</span>
+            <div className="flex items-center gap-1.5 text-white/60 font-bold border-l border-[#2A2A2C] pl-2">
+              <svg className="w-3.5 h-2.5 inline-block text-white" fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
+                <path d="M1 1 v8 M1 5 h10 M7 2 l4 3 l-4 3" />
+              </svg>
+              <span>最大航行距离 {maxDistanceLineData.capped ? `(≥${maxDistanceLimit}km)` : ''}</span>
             </div>
           )}
         </div>
 
-        {/* Export Buttons */}
-        <div className="flex gap-1 shrink-0">
+        {/* Export Dropdown Menu */}
+        <div className="relative shrink-0">
           <button
-            onClick={exportToCSV}
-            className="px-1.5 py-0.5 bg-[#1A1A1C] border border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10 rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px]"
-            title="导出此段时间的CSV表格数据"
+            onClick={() => setShowExportMenu(prev => !prev)}
+            className="px-2 py-0.5 bg-[#1A1A1C] border border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10 rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px]"
+            title="导出数据或图表"
           >
-            <Download size={10} />
-            <span>CSV</span>
+            <Download size={11} />
+            <span>导出</span>
+            <ChevronDown size={10} className={`opacity-60 transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
           </button>
-          <button
-            onClick={exportToSVGImage}
-            className="px-1.5 py-0.5 bg-[#1A1A1C] border border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10 rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px]"
-            title="导出当前子图表为PNG格式"
-          >
-            <Eye size={10} />
-            <span>图片</span>
-          </button>
+
+          {showExportMenu && (
+            <>
+              {/* Invisible click-away backdrop */}
+              <div 
+                className="fixed inset-0 z-10" 
+                onClick={() => setShowExportMenu(false)}
+              />
+              <div className="absolute right-0 bottom-full mb-1.5 w-32 bg-[#1A1A1C] border border-[#2C2C30] rounded-sm shadow-xl z-20 overflow-hidden py-1">
+                <button
+                  onClick={() => {
+                    exportToCSV();
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-white/5 hover:text-white text-white/70 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px]"
+                >
+                  <Download size={10} />
+                  <span>导出 CSV 数据</span>
+                </button>
+                <button
+                  onClick={() => {
+                    exportToSVGImage();
+                    setShowExportMenu(false);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 hover:bg-white/5 hover:text-white text-white/70 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px]"
+                >
+                  <Eye size={10} />
+                  <span>导出分析图表</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

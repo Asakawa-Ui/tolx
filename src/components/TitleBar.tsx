@@ -71,10 +71,6 @@ export default function TitleBar({ onResetAll }: TitleBarProps) {
             <HardDrive size={11} className="text-white/30" />
             <span>内存占用: <strong className="text-white/70">{ramLoad.toFixed(1)}GB</strong></span>
           </div>
-          <div className="flex items-center gap-1.5 border-l border-[#2A2A2C] pl-4">
-            <Wifi size={11} className="text-emerald-400" />
-            <span className="text-emerald-400 font-bold">卫星通信已连接</span>
-          </div>
           <div className="text-white/60 font-bold border-l border-[#2A2A2C] pl-4">
             {systemTime}
           </div>
@@ -113,11 +109,6 @@ export default function TitleBar({ onResetAll }: TitleBarProps) {
           <span className="hover:text-white hover:bg-white/5 px-2.5 py-1 rounded cursor-pointer transition-colors">导出中心(E)</span>
           <span className="hover:text-white hover:bg-white/5 px-2.5 py-1 rounded cursor-pointer transition-colors">安全警告(W)</span>
           <span className="hover:text-white hover:bg-white/5 px-2.5 py-1 rounded cursor-pointer transition-colors" onClick={() => alert("本系统为PC客户端演示DEMO，采用纯离线矢量GIS技术及9套先进积冰监测算法模型，可在严苛弱网环境下提供秒级态势感知及最大航程预测。")}>帮助(H)</span>
-        </div>
-
-        <div className="flex items-center gap-1.5 text-emerald-400 text-[12px]">
-          <ShieldCheck size={11} />
-          <span className="font-bold">核心安全运行时就绪</span>
         </div>
       </div>
     </div>
