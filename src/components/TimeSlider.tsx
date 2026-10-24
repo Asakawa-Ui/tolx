@@ -281,14 +281,14 @@ export default function TimeSlider({
         : `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
 
       let tickHeight = "h-3"; // Minor: 12px
-      let tickBg = isLight ? "bg-slate-300" : "bg-white/20";
+      let tickBg = isLight ? "bg-[#CDC5B4]" : "bg-white/20";
       
       if (tick.isMajor) {
         tickHeight = "h-12"; // Major: 48px
-        tickBg = isLight ? "bg-slate-600" : "bg-white/70";
+        tickBg = isLight ? "bg-[#57534E]" : "bg-white/70";
       } else if (tick.isMedium) {
         tickHeight = "h-8"; // Medium: 32px
-        tickBg = isLight ? "bg-slate-400" : "bg-white/45";
+        tickBg = isLight ? "bg-[#8A8175]" : "bg-white/45";
       }
 
       return (
@@ -300,7 +300,7 @@ export default function TimeSlider({
           <div className={`w-[1px] ${tickHeight} ${tickBg}`}></div>
           {tick.isMajor && (
             <span className={`absolute top-[28px] text-[10px] font-mono tracking-tighter select-none whitespace-nowrap ${
-              isLight ? 'text-slate-500 font-semibold' : 'text-white/60'
+              isLight ? 'text-[#78716C] font-bold' : 'text-white/60'
             }`}>
               {label}
             </span>
@@ -313,21 +313,21 @@ export default function TimeSlider({
   return (
     <div
       className={`border rounded-sm p-4 font-mono select-none flex items-center justify-between gap-6 transition-colors duration-200 ${
-        isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#121214] border-[#2A2A2C]'
+        isLight ? 'bg-[#FAF7F0] border-[#D8D1C2] shadow-xs' : 'bg-[#121214] border-[#2A2A2C]'
       }`}
       id="time-slider-container"
     >
       {/* Left Side: Playback Control */}
       <div className="flex items-center gap-3 shrink-0">
         <div className={`flex items-center gap-1 p-1 border rounded-sm ${
-          isLight ? 'bg-slate-100 border-slate-200' : 'bg-black/40 border-[#2A2A2C]'
+          isLight ? 'bg-[#EAE4D6] border-[#CDC5B4]' : 'bg-black/40 border-[#2A2A2C]'
         }`}>
           <button
             onClick={handlePrev}
             disabled={currentIndex <= 0.0001}
             className={`p-1 rounded-sm transition-colors cursor-pointer ${
               isLight
-                ? 'text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:hover:bg-transparent hover:bg-slate-200'
+                ? 'text-[#57534E] hover:text-[#1C1917] disabled:text-[#A8A29E] disabled:hover:bg-transparent hover:bg-[#DDD6C5]'
                 : 'text-white/50 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent hover:bg-white/10'
             }`}
             title="上一航步"
@@ -339,14 +339,14 @@ export default function TimeSlider({
             onClick={() => setIsPlaying(!isPlaying)}
             className={`p-1.5 rounded transition-colors cursor-pointer flex items-center justify-center shadow-sm w-7 h-7 ${
               isLight
-                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-[#1C1917] text-[#FAF7F0] hover:bg-[#292524]'
                 : 'bg-white text-black hover:bg-white/90'
             }`}
             title={isPlaying ? '暂停' : '播放'}
           >
             {isPlaying 
-              ? <Pause size={12} className={isLight ? "fill-white text-white" : "fill-black text-black"} /> 
-              : <Play size={12} className={isLight ? "fill-white text-white" : "fill-black text-black"} />
+              ? <Pause size={12} className={isLight ? "fill-[#FAF7F0] text-[#FAF7F0]" : "fill-black text-black"} /> 
+              : <Play size={12} className={isLight ? "fill-[#FAF7F0] text-[#FAF7F0]" : "fill-black text-black"} />
             }
           </button>
 
@@ -355,7 +355,7 @@ export default function TimeSlider({
             disabled={currentIndex >= flightData.length - 1 - 0.0001}
             className={`p-1 rounded-sm transition-colors cursor-pointer ${
               isLight
-                ? 'text-slate-600 hover:text-slate-900 disabled:text-slate-300 disabled:hover:bg-transparent hover:bg-slate-200'
+                ? 'text-[#57534E] hover:text-[#1C1917] disabled:text-[#A8A29E] disabled:hover:bg-transparent hover:bg-[#DDD6C5]'
                 : 'text-white/50 hover:text-white disabled:text-white/20 disabled:hover:bg-transparent hover:bg-white/10'
             }`}
             title="下一航步"
@@ -365,14 +365,14 @@ export default function TimeSlider({
         </div>
 
         <div className={`flex items-center gap-1.5 text-[12px] border-l pl-3 ${
-          isLight ? 'text-slate-600 border-slate-200' : 'text-white/50 border-[#2A2A2C]'
+          isLight ? 'text-[#78716C] border-[#CDC5B4]' : 'text-white/50 border-[#2A2A2C]'
         }`}>
           <span>倍速:</span>
           <select
             value={playbackSpeed}
             onChange={(e) => setPlaybackSpeed(Number(e.target.value))}
             className={`border rounded px-1.5 py-0.5 text-[12px] cursor-pointer focus:outline-none ${
-              isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-black/40 border-[#2A2A2C] text-white'
+              isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#1C1917]' : 'bg-black/40 border-[#2A2A2C] text-white'
             }`}
           >
             <option value={1000}>1x</option>
@@ -382,14 +382,14 @@ export default function TimeSlider({
         </div>
 
         <div className={`flex items-center gap-1.5 text-[12px] border-l pl-3 ${
-          isLight ? 'text-slate-600 border-slate-200' : 'text-white/50 border-[#2A2A2C]'
+          isLight ? 'text-[#78716C] border-[#CDC5B4]' : 'text-white/50 border-[#2A2A2C]'
         }`}>
           <span>间隔:</span>
           <select
             value={intervalVal}
             onChange={(e) => onChangeInterval(e.target.value)}
             className={`border rounded px-1.5 py-0.5 text-[12px] cursor-pointer focus:outline-none ${
-              isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-black/40 border-[#2A2A2C] text-white'
+              isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#1C1917]' : 'bg-black/40 border-[#2A2A2C] text-white'
             }`}
           >
             <option value="1s">1s</option>
@@ -408,7 +408,7 @@ export default function TimeSlider({
         {/* Track representation */}
         <div 
           ref={containerRef}
-          className={`h-[2px] w-full relative cursor-pointer ${isLight ? 'bg-slate-300' : 'bg-[#2A2A2C]'}`}
+          className={`h-[2px] w-full relative cursor-pointer ${isLight ? 'bg-[#CDC5B4]' : 'bg-[#2A2A2C]'}`}
           onPointerDown={handleTrackPointerDown}
         >
           {/* Selected Active Subrange Brush Highlight - Brighter, richer orange with taller height */}

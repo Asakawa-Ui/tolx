@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { FlightDataPoint, IcingAlgorithmDef, ProductConfig } from '../types';
 import { LineChart, BarChart2, Check, Download, MapPin, Eye, Sliders, Layers, RefreshCw, ChevronDown } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
+import IcingConfigModal from './IcingConfigModal';
 
 interface ProductCardProps {
   key?: React.Key | string;
@@ -82,6 +83,17 @@ export default function ProductCard({
 
   // Unified evaluation logic matching user requirements
   const getPointColorAndLabel = (val: number) => {
+    if (config.levels && config.levels.length > 0) {
+      const nonBase = config.levels.filter(l => !l.isBase).sort((a, b) => b.minThreshold - a.minThreshold);
+      for (const lvl of nonBase) {
+        if (val >= lvl.minThreshold) {
+          return { color: lvl.color, label: lvl.name };
+        }
+      }
+      const baseLevel = config.levels[0] || { color: colorNone, name: algorithm.levelLabels?.none || '无积冰' };
+      return { color: baseLevel.color, label: baseLevel.name };
+    }
+
     if (algorithm.id === 'temp_frost') {
       const thresh = thLight;
       if (val > 0) {
@@ -431,16 +443,16 @@ export default function ProductCard({
       ref={containerRef}
       className={`border rounded-sm p-3.5 space-y-3 relative flex flex-col transition-all duration-200 ${
         isLight
-          ? (isMappedOnMap ? 'bg-white border-blue-600 shadow-md ring-2 ring-blue-500/20' : 'bg-white border-slate-200 shadow-xs')
+          ? (isMappedOnMap ? 'bg-[#FAF7F0] border-[#0284C7] shadow-md ring-2 ring-[#0284C7]/20' : 'bg-[#FAF7F0] border-[#D8D1C2] shadow-xs')
           : (isMappedOnMap ? 'bg-[#121214] border-white shadow-lg' : 'bg-[#121214] border-[#2A2A2C]')
       }`}
       id={`product-card-${algorithm.id}`}
     >
       {/* Header info */}
-      <div className={`flex items-center justify-between pb-2 border-b ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
+      <div className={`flex items-center justify-between pb-2 border-b ${isLight ? 'border-[#DDD7C8]' : 'border-[#2A2A2C]'}`}>
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isMappedOnMap ? 'bg-[#34C759]' : (isLight ? 'bg-slate-400 animate-pulse' : 'bg-white/25 animate-pulse')}`}></div>
-          <h3 className={`text-[16px] font-sans font-bold flex items-center gap-1.5 uppercase ${isLight ? 'text-slate-800' : 'text-[#E0E0E0]'}`}>
+          <div className={`w-2 h-2 rounded-full ${isMappedOnMap ? 'bg-[#34C759]' : (isLight ? 'bg-[#A8A29E] animate-pulse' : 'bg-white/25 animate-pulse')}`}></div>
+          <h3 className={`text-[16px] font-sans font-bold flex items-center gap-1.5 uppercase ${isLight ? 'text-[#1C1917]' : 'text-[#E0E0E0]'}`}>
             {algorithm.name}
           </h3>
         </div>
@@ -450,7 +462,7 @@ export default function ProductCard({
           <button
             onClick={() => setChartMode(prev => prev === 'line' ? 'scatter' : 'line')}
             className={`p-1 border rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer ${
-              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-300' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
+              isLight ? 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#EAE4D6] border-[#D8D1C2]' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
             }`}
             title="切换 折线图/散点图"
           >
@@ -461,7 +473,7 @@ export default function ProductCard({
           <button
             onClick={() => setShowConfig(true)}
             className={`p-1 border rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer ${
-              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-300' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
+              isLight ? 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#EAE4D6] border-[#D8D1C2]' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
             }`}
             title="配置显示阈值与颜色"
           >
@@ -473,8 +485,8 @@ export default function ProductCard({
             onClick={onMapToTrajectory}
             className={`p-1 border text-[12px] flex items-center gap-1 rounded-sm transition-colors cursor-pointer ${
               isMappedOnMap 
-              ? (isLight ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-xs' : 'bg-white border-white text-black font-bold shadow-sm')
-              : (isLight ? 'text-slate-600 border-slate-300 hover:text-slate-900 hover:bg-slate-100' : 'text-white/50 border-[#2A2A2C] hover:text-white hover:bg-white/10')
+              ? (isLight ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF7F0] font-bold shadow-xs' : 'bg-white border-white text-black font-bold shadow-sm')
+              : (isLight ? 'text-[#57534E] border-[#D8D1C2] hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'text-white/50 border-[#2A2A2C] hover:text-white hover:bg-white/10')
             }`}
             title="将该算法渲染到主飞行地图轨迹"
           >
@@ -484,188 +496,23 @@ export default function ProductCard({
         </div>
       </div>
 
-      {/* Threshold and Config modal popup dialog */}
-      {showConfig && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 font-mono animate-fadeIn" onClick={() => setShowConfig(false)}>
-          <div className={`border rounded-md p-5 w-full max-w-md space-y-4 shadow-2xl relative ${
-            isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#121214] border-[#2A2A2C] text-white'
-          }`} onClick={e => e.stopPropagation()}>
-            <div className={`flex items-center justify-between pb-3 border-b ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
-              <span className={`font-bold text-xs flex items-center gap-2 ${isLight ? 'text-slate-800' : 'text-white'}`}>
-                <Sliders size={14} className={isLight ? 'text-slate-500' : 'text-white/60'} />
-                <span>⚙️ {algorithm.name} 阈值与颜色配置</span>
-              </span>
-              <button 
-                onClick={() => setShowConfig(false)}
-                className={`transition-colors cursor-pointer text-base ${isLight ? 'text-slate-400 hover:text-slate-700' : 'text-white/40 hover:text-white'}`}
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {/* Threshold bounds */}
-              <div className={`space-y-3.5 pr-4 border-r ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
-                <div className={`text-[12px] uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
-                  分级阈值 {algorithm.unit ? `(${algorithm.unit})` : ''}
-                </div>
-                
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#0A84FF] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度'} ≥</span>
-                  <input
-                    type="number"
-                    step={algorithm.maxVal <= 10 ? "0.1" : "1"}
-                    value={thLight}
-                    onChange={(e) => setThLight(parseFloat(e.target.value) || 0)}
-                    className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
-                      isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
-                    }`}
-                  />
-                </div>
-
-                {algorithm.defaultThresholds.lightModerate !== undefined && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#22D3EE] text-xs font-semibold">{algorithm.levelLabels?.lightModerate || '轻-中度'} ≥</span>
-                    <input
-                      type="number"
-                      step={algorithm.maxVal <= 10 ? "0.1" : "1"}
-                      value={thLightModerate}
-                      onChange={(e) => setThLightModerate(parseFloat(e.target.value) || 0)}
-                      className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
-                        isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
-                      }`}
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9500] text-xs font-semibold">{algorithm.levelLabels?.moderate || '中度'} ≥</span>
-                  <input
-                    type="number"
-                    step={algorithm.maxVal <= 10 ? "0.1" : "1"}
-                    value={thModerate}
-                    onChange={(e) => setThModerate(parseFloat(e.target.value) || 0)}
-                    className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
-                      isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
-                    }`}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF3B30] text-xs font-semibold">{algorithm.levelLabels?.severe || '重度'} ≥</span>
-                  <input
-                    type="number"
-                    step={algorithm.maxVal <= 10 ? "0.1" : "1"}
-                    value={thSevere}
-                    onChange={(e) => setThSevere(parseFloat(e.target.value) || 0)}
-                    className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
-                      isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
-                    }`}
-                  />
-                </div>
-              </div>
-
-              {/* Colors */}
-              <div className="space-y-3.5 pl-2">
-                <div className={`text-[12px] uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
-                  雷达/轨迹颜色
-                </div>
-                
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`text-xs ${isLight ? 'text-slate-500' : 'text-white/40'}`}>{algorithm.levelLabels?.none || '无风险'}</span>
-                  <input
-                    type="color"
-                    value={colorNone}
-                    onChange={(e) => setColorNone(e.target.value)}
-                    className="w-8 h-5 bg-transparent border-0 cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#0A84FF] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度积冰'}</span>
-                  <input
-                    type="color"
-                    value={colorLight}
-                    onChange={(e) => setColorLight(e.target.value)}
-                    className="w-8 h-5 bg-transparent border-0 cursor-pointer"
-                  />
-                </div>
-
-                {algorithm.defaultThresholds.lightModerate !== undefined && (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[#22D3EE] text-xs font-semibold">{algorithm.levelLabels?.lightModerate || '轻-中度'}</span>
-                    <input
-                      type="color"
-                      value={colorLightModerate}
-                      onChange={(e) => setColorLightModerate(e.target.value)}
-                      className="w-8 h-5 bg-transparent border-0 cursor-pointer"
-                    />
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9500] text-xs font-semibold">{algorithm.levelLabels?.moderate || '中度积冰'}</span>
-                  <input
-                    type="color"
-                    value={colorModerate}
-                    onChange={(e) => setColorModerate(e.target.value)}
-                    className="w-8 h-5 bg-transparent border-0 cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF3B30] text-xs font-semibold">{algorithm.levelLabels?.severe || '重度积冰'}</span>
-                  <input
-                    type="color"
-                    value={colorSevere}
-                    onChange={(e) => setColorSevere(e.target.value)}
-                    className="w-8 h-5 bg-transparent border-0 cursor-pointer"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className={`pt-3 flex items-center justify-between gap-4 border-t ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
-              <div className={`flex items-center gap-1.5 text-xs ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-                <span>最大航程上限:</span>
-                <input
-                  type="number"
-                  value={maxDistanceLimit}
-                  onChange={(e) => setMaxDistanceLimit(Math.max(10, parseInt(e.target.value) || 100))}
-                  className={`w-12 border rounded-sm px-1 text-center ${
-                    isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
-                  }`}
-                />
-                <span>km</span>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={handleResetConfig}
-                  className={`px-2.5 py-1 text-xs font-bold rounded-sm transition-colors cursor-pointer flex items-center gap-1 ${
-                    isLight ? 'bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200' : 'bg-[#2A2A2C] text-white hover:bg-white/10'
-                  }`}
-                >
-                  <RefreshCw size={11} />
-                  <span>重置</span>
-                </button>
-                <button
-                  onClick={handleSaveConfig}
-                  className={`px-3 py-1 text-xs font-bold rounded-sm transition-colors flex items-center gap-1 cursor-pointer ${
-                    isLight ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-black hover:bg-white/90'
-                  }`}
-                >
-                  <Check size={11} />
-                  <span>保存并应用</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 积冰监测配置界面（阈值与颜色配置） */}
+      <IcingConfigModal
+        isOpen={showConfig}
+        onClose={() => setShowConfig(false)}
+        algorithm={algorithm}
+        config={config}
+        maxDistanceLimit={maxDistanceLimit}
+        onSave={(newCfg, newMaxDist) => {
+          setMaxDistanceLimit(newMaxDist);
+          onChangeConfig(newCfg);
+        }}
+        onReset={handleResetConfig}
+      />
 
       {/* Embedded Chart Body */}
       <div className={`relative border rounded-sm transition-colors duration-200 ${
-        isLight ? 'bg-slate-50/80 border-slate-200' : 'bg-[#0A0A0B] border-[#2A2A2C]'
+        isLight ? 'bg-[#F2EFE8] border-[#DDD7C8]' : 'bg-[#0A0A0B] border-[#2A2A2C]'
       }`}>
         <svg
           id={`svg-chart-${algorithm.id}`}
@@ -691,7 +538,7 @@ export default function ProductCard({
                     y1={y}
                     x2={chartWidth - paddingRight}
                     y2={y}
-                    stroke={isLight ? "#CBD5E1" : "#1A1A1C"}
+                    stroke={isLight ? "#D5CEBF" : "#1A1A1C"}
                     strokeWidth={0.5}
                     strokeDasharray="2 4"
                   />
@@ -699,7 +546,7 @@ export default function ProductCard({
                     x={paddingLeft - 5}
                     y={y + 4}
                     textAnchor="end"
-                    fill={isLight ? "rgba(100, 116, 139, 0.8)" : "rgba(255, 255, 255, 0.4)"}
+                    fill={isLight ? "#78716C" : "rgba(255, 255, 255, 0.4)"}
                     fontSize={12}
                     fontFamily="monospace"
                   >
@@ -781,44 +628,61 @@ export default function ProductCard({
 
           {/* Threshold marker indicators (Horizontal lines) */}
           <g opacity={0.4}>
-            <line
-              x1={paddingLeft}
-              y1={getY(thSevere)}
-              x2={chartWidth - paddingRight}
-              y2={getY(thSevere)}
-              stroke={colorSevere}
-              strokeWidth={1}
-              strokeDasharray="1 3"
-            />
-            <line
-              x1={paddingLeft}
-              y1={getY(thModerate)}
-              x2={chartWidth - paddingRight}
-              y2={getY(thModerate)}
-              stroke={colorModerate}
-              strokeWidth={1}
-              strokeDasharray="1 3"
-            />
-            {algorithm.defaultThresholds.lightModerate !== undefined && (
-              <line
-                x1={paddingLeft}
-                y1={getY(thLightModerate)}
-                x2={chartWidth - paddingRight}
-                y2={getY(thLightModerate)}
-                stroke={colorLightModerate}
-                strokeWidth={1}
-                strokeDasharray="1 3"
-              />
+            {config.levels && config.levels.length > 0 ? (
+              config.levels.filter(l => !l.isBase).map(l => (
+                <line
+                  key={`th-${l.id}`}
+                  x1={paddingLeft}
+                  y1={getY(l.minThreshold)}
+                  x2={chartWidth - paddingRight}
+                  y2={getY(l.minThreshold)}
+                  stroke={l.color}
+                  strokeWidth={1}
+                  strokeDasharray="1 3"
+                />
+              ))
+            ) : (
+              <>
+                <line
+                  x1={paddingLeft}
+                  y1={getY(thSevere)}
+                  x2={chartWidth - paddingRight}
+                  y2={getY(thSevere)}
+                  stroke={colorSevere}
+                  strokeWidth={1}
+                  strokeDasharray="1 3"
+                />
+                <line
+                  x1={paddingLeft}
+                  y1={getY(thModerate)}
+                  x2={chartWidth - paddingRight}
+                  y2={getY(thModerate)}
+                  stroke={colorModerate}
+                  strokeWidth={1}
+                  strokeDasharray="1 3"
+                />
+                {algorithm.defaultThresholds.lightModerate !== undefined && (
+                  <line
+                    x1={paddingLeft}
+                    y1={getY(thLightModerate)}
+                    x2={chartWidth - paddingRight}
+                    y2={getY(thLightModerate)}
+                    stroke={colorLightModerate}
+                    strokeWidth={1}
+                    strokeDasharray="1 3"
+                  />
+                )}
+                <line
+                  x1={paddingLeft}
+                  y1={getY(thLight)}
+                  x2={chartWidth - paddingRight}
+                  y2={getY(thLight)}
+                  stroke={colorLight}
+                  strokeWidth={1}
+                  strokeDasharray="1 3"
+                />
+              </>
             )}
-            <line
-              x1={paddingLeft}
-              y1={getY(thLight)}
-              x2={chartWidth - paddingRight}
-              y2={getY(thLight)}
-              stroke={colorLight}
-              strokeWidth={1}
-              strokeDasharray="1 3"
-            />
           </g>
 
           {/* Synchronized Vertical Hover Line & Interactive Overlay */}
@@ -975,16 +839,16 @@ export default function ProductCard({
           return (
             <div
               className={`absolute top-2 rounded-sm px-2 py-1 text-[12px] font-mono pointer-events-none z-10 border ${
-                isLight ? 'bg-white/95 border-slate-300 text-slate-800 shadow-md' : 'bg-[#1A1A1C]/95 border-[#2A2A2C] text-[#E0E0E0] shadow-lg'
+                isLight ? 'bg-[#FAF7F0]/95 border-[#CDC5B4] text-[#1C1917] shadow-md' : 'bg-[#1A1A1C]/95 border-[#2A2A2C] text-[#E0E0E0] shadow-lg'
               }`}
               style={{
                 left: isLeftHalf ? 'auto' : '45px',
                 right: isLeftHalf ? '20px' : 'auto'
               }}
             >
-              <div className={`font-bold mb-0.5 ${isLight ? 'text-slate-500' : 'text-white/40'}`}>时刻: {hoveredPt.time}</div>
+              <div className={`font-bold mb-0.5 ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>时刻: {hoveredPt.time}</div>
               <div className="flex gap-2">
-                <span>数值: <strong className={isLight ? 'text-slate-900' : 'text-white'}>{output.value} {algorithm.unit}</strong></span>
+                <span>数值: <strong className={isLight ? 'text-[#1C1917]' : 'text-white'}>{output.value} {algorithm.unit}</strong></span>
                 <span>级别: <strong style={{ color }}>{label}</strong></span>
               </div>
             </div>
@@ -995,36 +859,47 @@ export default function ProductCard({
       {/* Footer controls: Legend and Export */}
       <div className="flex items-end justify-between text-[12px] font-mono pt-1">
         {/* Dynamic Legend */}
-        <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorNone }}></span>
-            <span>{(algorithm.levelLabels?.none || '无积冰').replace('积冰', '') || '无'}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLight }}></span>
-            <span>{(algorithm.levelLabels?.light || '轻度').replace('积冰', '')}</span>
-          </div>
-          {algorithm.defaultThresholds.lightModerate !== undefined && (
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLightModerate }}></span>
-              <span>{(algorithm.levelLabels?.lightModerate || '轻-中度').replace('积冰', '')}</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorModerate }}></span>
-            <span>{(algorithm.levelLabels?.moderate || '中度').replace('积冰', '')}</span>
-          </div>
-          {algorithm.id !== 'temp_frost' && (
-            <div className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorSevere }}></span>
-              <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '')}</span>
-            </div>
+        <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${isLight ? 'text-[#57534E]' : 'text-white/40'}`}>
+          {config.levels && config.levels.length > 0 ? (
+            config.levels.map((lvl) => (
+              <div key={lvl.id} className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: lvl.color }}></span>
+                <span>{lvl.name.replace('积冰', '') || '无'}</span>
+              </div>
+            ))
+          ) : (
+            <>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorNone }}></span>
+                <span>{(algorithm.levelLabels?.none || '无积冰').replace('积冰', '') || '无'}</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLight }}></span>
+                <span>{(algorithm.levelLabels?.light || '轻度').replace('积冰', '')}</span>
+              </div>
+              {algorithm.defaultThresholds.lightModerate !== undefined && (
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLightModerate }}></span>
+                  <span>{(algorithm.levelLabels?.lightModerate || '轻-中度').replace('积冰', '')}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorModerate }}></span>
+                <span>{(algorithm.levelLabels?.moderate || '中度').replace('积冰', '')}</span>
+              </div>
+              {algorithm.id !== 'temp_frost' && (
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorSevere }}></span>
+                  <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '')}</span>
+                </div>
+              )}
+            </>
           )}
           {maxDistanceLineData && (
             <div className={`flex items-center gap-1.5 font-bold border-l pl-2 ${
-              isLight ? 'text-slate-700 border-slate-300' : 'text-white/60 border-[#2A2A2C]'
+              isLight ? 'text-[#44403C] border-[#CDC5B4]' : 'text-white/60 border-[#2A2A2C]'
             }`}>
-              <svg className={`w-3.5 h-2.5 inline-block ${isLight ? 'text-slate-700' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
+              <svg className={`w-3.5 h-2.5 inline-block ${isLight ? 'text-[#44403C]' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
                 <path d="M1 1 v8 M1 5 h10 M7 2 l4 3 l-4 3" />
               </svg>
               <span>最大航行距离 {maxDistanceLineData.capped ? `(≥${maxDistanceLimit}km)` : ''}</span>
@@ -1038,7 +913,7 @@ export default function ProductCard({
             onClick={() => setShowExportMenu(prev => !prev)}
             className={`px-2 py-0.5 border rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px] ${
               isLight
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+                ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#44403C] hover:text-[#1C1917] hover:bg-[#DDD5C5]'
                 : 'bg-[#1A1A1C] border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10'
             }`}
             title="导出数据或图表"
@@ -1056,7 +931,7 @@ export default function ProductCard({
                 onClick={() => setShowExportMenu(false)}
               />
               <div className={`absolute right-0 bottom-full mb-1.5 w-32 rounded-sm shadow-xl z-20 overflow-hidden py-1 border ${
-                isLight ? 'bg-white border-slate-200 text-slate-700' : 'bg-[#1A1A1C] border-[#2C2C30] text-white/70'
+                isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#44403C]' : 'bg-[#1A1A1C] border-[#2C2C30] text-white/70'
               }`}>
                 <button
                   onClick={() => {
@@ -1064,7 +939,7 @@ export default function ProductCard({
                     setShowExportMenu(false);
                   }}
                   className={`w-full text-left px-2.5 py-1.5 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px] ${
-                    isLight ? 'hover:bg-slate-100 hover:text-slate-900 text-slate-700' : 'hover:bg-white/5 hover:text-white text-white/70'
+                    isLight ? 'hover:bg-[#EAE4D6] hover:text-[#1C1917] text-[#44403C]' : 'hover:bg-white/5 hover:text-white text-white/70'
                   }`}
                 >
                   <Download size={10} />
@@ -1076,7 +951,7 @@ export default function ProductCard({
                     setShowExportMenu(false);
                   }}
                   className={`w-full text-left px-2.5 py-1.5 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px] ${
-                    isLight ? 'hover:bg-slate-100 hover:text-slate-900 text-slate-700' : 'hover:bg-white/5 hover:text-white text-white/70'
+                    isLight ? 'hover:bg-[#EAE4D6] hover:text-[#1C1917] text-[#44403C]' : 'hover:bg-white/5 hover:text-white text-white/70'
                   }`}
                 >
                   <Eye size={10} />

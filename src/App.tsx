@@ -7,6 +7,7 @@ import TimeSlider from './components/TimeSlider';
 import ProductCard from './components/ProductCard';
 import FlightTelemetryPanel from './components/FlightTelemetryPanel';
 import { Filter, Layers, Database, BarChart3, Radio, Cpu, Plane } from 'lucide-react';
+import { useTheme } from './ThemeContext';
 
 export interface FlightSortie {
   id: string;
@@ -29,6 +30,8 @@ const FLIGHTS: FlightSortie[] = [
 ];
 
 export default function App() {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [intervalVal, setIntervalVal] = useState<string>('1s');
 
   const flightDataMap = useMemo(() => {
@@ -175,13 +178,24 @@ export default function App() {
   const currentPoint = flightData[Math.round(currentIndex)] || flightData[0];
 
   return (
-    <div className="min-h-screen w-full bg-[#070708] text-[#E0E0E0] flex items-start justify-center p-6 selection:bg-white selection:text-black font-sans overflow-auto">
+    <div className={`min-h-screen w-full flex items-start justify-center p-6 font-sans overflow-auto transition-colors duration-200 ${
+      isLight ? 'bg-[#D6D0C4] text-[#292524] selection:bg-[#1C1917] selection:text-[#FAF7F0]' : 'bg-[#070708] text-[#E0E0E0] selection:bg-white selection:text-black'
+    }`}>
       
       {/* Outer Application Window Wrap (PC Client Simulator Skin) */}
-      <div className="w-[1920px] h-[1080px] shrink-0 flex flex-col bg-[#0A0A0B] border border-[#2A2A2C] rounded-md shadow-2xl overflow-hidden" id="pc-app-skin">
+      <div 
+        className={`w-[1920px] h-[1080px] shrink-0 flex flex-col rounded-md shadow-2xl overflow-hidden border transition-colors duration-200 ${
+          isLight ? 'bg-[#F4F0E6] border-[#CDC5B4] text-[#292524] shadow-[0_20px_50px_rgba(40,30,20,0.18)]' : 'bg-[#0A0A0B] border-[#2A2A2C]'
+        }`} 
+        id="pc-app-skin"
+      >
         
         {/* Native TitleBar and Menu dropdown bar (客户端头部) */}
-        <TitleBar onResetAll={handleResetAll} />
+        <TitleBar 
+          onResetAll={handleResetAll}
+          rightTab={rightTab}
+          onSelectRightTab={setRightTab}
+        />
 
         {/* Workspace Layout (主页面容器) */}
         <div className="p-4 flex flex-col h-[1032px] justify-between overflow-hidden">
@@ -215,17 +229,26 @@ export default function App() {
 
             {/* Right 3/5 Columns: Workspace Panel with Tab Switching */}
             <div className="col-span-3 flex flex-col h-full overflow-hidden">
-              <div className="bg-[#121214] border border-[#2A2A2C] rounded-sm p-4 space-y-4 h-full flex flex-col overflow-hidden" id="workspace-tabs-container">
+              <div 
+                className={`border rounded-sm p-4 space-y-4 h-full flex flex-col overflow-hidden transition-colors duration-200 ${
+                  isLight ? 'bg-[#FAF7F0] border-[#D8D1C2]' : 'bg-[#121214] border-[#2A2A2C]'
+                }`} 
+                id="workspace-tabs-container"
+              >
                 
                 {/* Header with Tab Controls */}
-                <div className="flex items-center justify-between border-b border-[#2A2A2C] pb-3 shrink-0">
-                  <div className="flex items-center gap-1.5 bg-[#17171A] p-1 border border-[#2A2A2C] rounded-sm">
+                <div className={`flex items-center justify-between border-b pb-3 shrink-0 ${
+                  isLight ? 'border-[#E2DCCE]' : 'border-[#2A2A2C]'
+                }`}>
+                  <div className={`flex items-center gap-1.5 p-1 border rounded-sm ${
+                    isLight ? 'bg-[#EAE4D6] border-[#CDC5B4]' : 'bg-[#17171A] border-[#2A2A2C]'
+                  }`}>
                     <button
                       onClick={() => setRightTab('flight')}
                       className={`px-4 py-1.5 font-mono text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center gap-2 rounded-xs ${
                         rightTab === 'flight'
-                          ? 'bg-[#2A2A2C] text-[#00E5FF] font-bold border-white/5 shadow-sm'
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
+                          ? (isLight ? 'bg-[#FAF7F0] text-[#0284C7] font-bold border border-[#CDC5B4] shadow-xs' : 'bg-[#2A2A2C] text-[#00E5FF] font-bold border-white/5 shadow-sm')
+                          : (isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#E2DCCE]' : 'text-white/40 hover:text-white hover:bg-white/5')
                       }`}
                     >
                       <Plane size={13} />
@@ -235,8 +258,8 @@ export default function App() {
                       onClick={() => setRightTab('icing')}
                       className={`px-4 py-1.5 font-mono text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center gap-2 rounded-xs ${
                         rightTab === 'icing'
-                          ? 'bg-[#2A2A2C] text-[#FF9F0A] font-bold border-white/5 shadow-sm'
-                          : 'text-white/40 hover:text-white hover:bg-white/5'
+                          ? (isLight ? 'bg-[#FAF7F0] text-[#D97706] font-bold border border-[#CDC5B4] shadow-xs' : 'bg-[#2A2A2C] text-[#FF9F0A] font-bold border-white/5 shadow-sm')
+                          : (isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#E2DCCE]' : 'text-white/40 hover:text-white hover:bg-white/5')
                       }`}
                     >
                       <BarChart3 size={13} />
@@ -319,11 +342,13 @@ export default function App() {
         </div>
 
         {/* Operating System Styled Footer status bar */}
-        <div className="bg-[#1A1A1C] border-t border-[#2A2A2C] px-4 py-1.5 flex items-center justify-between text-[12px] font-mono text-white/40 shrink-0">
+        <div className={`border-t px-4 py-1.5 flex items-center justify-between text-[12px] font-mono shrink-0 transition-colors duration-200 ${
+          isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#78716C]' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/40'
+        }`}>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
-              演示系统状态: 运行正常
+              <span className={isLight ? 'text-[#292524] font-medium' : ''}>演示系统状态: 运行正常</span>
             </span>
             <span>数据源: 动态气象仿真数据</span>
             <span>数据更新情况: 正常</span>

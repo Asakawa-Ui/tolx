@@ -217,6 +217,16 @@ export default function FlightMap({
     const output = point.algorithms[mappedAlgorithmId];
     if (!output || !activeConfig) return activeConfig?.colors?.none || '#6B7280';
     
+    if (activeConfig.levels && activeConfig.levels.length > 0) {
+      const nonBase = activeConfig.levels.filter(l => !l.isBase).sort((a, b) => b.minThreshold - a.minThreshold);
+      for (const lvl of nonBase) {
+        if (output.value >= lvl.minThreshold) {
+          return lvl.color;
+        }
+      }
+      return activeConfig.levels[0]?.color || activeConfig.colors.none;
+    }
+
     const risk = evaluateIcingRisk(mappedAlgorithmId, output.value, activeConfig.thresholds);
     if (risk.level === 'Severe') return activeConfig.colors.severe;
     if (risk.level === 'Moderate') return activeConfig.colors.moderate;
@@ -228,6 +238,17 @@ export default function FlightMap({
   const getRiskLabel = (point: FlightDataPoint) => {
     const output = point.algorithms[mappedAlgorithmId];
     if (!output || !activeConfig) return '无积冰';
+
+    if (activeConfig.levels && activeConfig.levels.length > 0) {
+      const nonBase = activeConfig.levels.filter(l => !l.isBase).sort((a, b) => b.minThreshold - a.minThreshold);
+      for (const lvl of nonBase) {
+        if (output.value >= lvl.minThreshold) {
+          return lvl.name;
+        }
+      }
+      return activeConfig.levels[0]?.name || '无积冰';
+    }
+
     const risk = evaluateIcingRisk(mappedAlgorithmId, output.value, activeConfig.thresholds);
     return risk.label;
   };
@@ -334,27 +355,27 @@ export default function FlightMap({
   return (
     <div 
       className={`flex flex-col border rounded-sm overflow-hidden select-none h-full transition-colors duration-200 ${
-        isLight ? 'bg-[#FFFFFF] border-[#CBD5E1]' : 'bg-[#121214] border-[#2A2A2C]'
+        isLight ? 'bg-[#FAF7F0] border-[#CDC5B4]' : 'bg-[#121214] border-[#2A2A2C]'
       }`} 
       id="flight-map-container"
     >
       {/* Map Action Bar / Window Subheader */}
       <div 
         className={`flex items-center justify-between px-3 py-1.5 border-b text-xs font-mono transition-colors duration-200 ${
-          isLight ? 'bg-[#F8FAFC] border-[#CBD5E1] text-slate-700' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+          isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#44403C]' : 'bg-[#1A1A1C] border-[#2A2A2C]'
         }`}
       >
         <div className="flex items-center gap-2">
-          <span className={`text-[12px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>当前积冰监测产品:</span>
+          <span className={`text-[12px] ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>当前积冰监测产品:</span>
           <select
             value={mappedAlgorithmId}
             onChange={(e) => onSelectAlgorithm(e.target.value)}
             className={`px-2 py-0.5 rounded-sm focus:outline-none cursor-pointer transition-colors text-xs font-sans outline-none border ${
-              isLight ? 'text-slate-800 bg-white border-slate-300 hover:border-slate-400' : 'text-[#E0E0E0] bg-[#2A2A2C] border-white/15 hover:border-white/25'
+              isLight ? 'text-[#1C1917] bg-[#FAF7F0] border-[#CDC5B4] hover:border-[#A8A29E]' : 'text-[#E0E0E0] bg-[#2A2A2C] border-white/15 hover:border-white/25'
             }`}
           >
             {ALGORITHMS.map(algo => (
-              <option key={algo.id} value={algo.id} className={isLight ? 'bg-white text-slate-800' : 'bg-[#121214] text-[#E0E0E0]'}>
+              <option key={algo.id} value={algo.id} className={isLight ? 'bg-[#FAF7F0] text-[#1C1917]' : 'bg-[#121214] text-[#E0E0E0]'}>
                 {algo.name} {algo.paramSymbol ? `(${algo.paramSymbol})` : ''}
               </option>
             ))}
@@ -364,7 +385,7 @@ export default function FlightMap({
           <button 
             onClick={centerOnAircraft}
             className={`p-1 rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-white/50 hover:text-white hover:bg-white/10'
+              isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD6C5]' : 'text-white/50 hover:text-white hover:bg-white/10'
             }`}
             title="定位飞机"
           >
@@ -373,7 +394,7 @@ export default function FlightMap({
           <button 
             onClick={zoomIn} 
             className={`p-1 rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-white/50 hover:text-white hover:bg-white/10'
+              isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD6C5]' : 'text-white/50 hover:text-white hover:bg-white/10'
             }`}
             title="放大"
           >
@@ -382,7 +403,7 @@ export default function FlightMap({
           <button 
             onClick={zoomOut} 
             className={`p-1 rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-white/50 hover:text-white hover:bg-white/10'
+              isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD6C5]' : 'text-white/50 hover:text-white hover:bg-white/10'
             }`}
             title="缩小"
           >
@@ -391,7 +412,7 @@ export default function FlightMap({
           <button 
             onClick={resetView} 
             className={`p-1 rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-500 hover:text-slate-900 hover:bg-slate-200' : 'text-white/50 hover:text-white hover:bg-white/10'
+              isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD6C5]' : 'text-white/50 hover:text-white hover:bg-white/10'
             }`}
             title="重置视图"
           >
@@ -403,7 +424,7 @@ export default function FlightMap({
       {/* SVG Map Canvas */}
       <div 
         className={`relative flex-grow h-0 overflow-hidden cursor-grab active:cursor-grabbing transition-colors duration-200 ${
-          isLight ? 'bg-[#F8FAFC]' : 'bg-[#0A0A0B]'
+          isLight ? 'bg-[#EFECE3]' : 'bg-[#0A0A0B]'
         }`}
       >
         <svg
@@ -432,7 +453,7 @@ export default function FlightMap({
                   y1={start.y}
                   x2={mapWidth}
                   y2={start.y}
-                  stroke={isLight ? "#E2E8F0" : "#121214"}
+                  stroke={isLight ? "#DCD5C6" : "#121214"}
                   strokeWidth={0.5}
                 />
               );
@@ -447,7 +468,7 @@ export default function FlightMap({
                   y1={0}
                   x2={start.x}
                   y2={mapHeight}
-                  stroke={isLight ? "#E2E8F0" : "#121214"}
+                  stroke={isLight ? "#DCD5C6" : "#121214"}
                   strokeWidth={0.5}
                 />
               );
@@ -792,46 +813,46 @@ export default function FlightMap({
         {/* Selected Point Detail Readout (Sticky Panel in Map) */}
         {selectedPoint && (
           <div className={`absolute bottom-3 left-3 p-3 rounded-sm text-xs font-mono w-64 shadow-xl select-text border ${
-            isLight ? 'bg-white/95 border-slate-300 text-slate-800' : 'bg-[#121214]/95 border-[#2A2A2C] text-[#E0E0E0]'
+            isLight ? 'bg-[#FAF7F0]/95 border-[#CDC5B4] text-[#1C1917]' : 'bg-[#121214]/95 border-[#2A2A2C] text-[#E0E0E0]'
           }`}>
-            <div className={`flex justify-between items-center border-b pb-1.5 mb-1.5 ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
-              <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>航迹点 {selectedPoint.id} 详细数据</span>
+            <div className={`flex justify-between items-center border-b pb-1.5 mb-1.5 ${isLight ? 'border-[#DDD7C8]' : 'border-[#2A2A2C]'}`}>
+              <span className={`font-bold ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>航迹点 {selectedPoint.id} 详细数据</span>
               <button
                 onClick={() => setSelectedPoint(null)}
-                className={`cursor-pointer ${isLight ? 'text-slate-400 hover:text-slate-800' : 'text-white/40 hover:text-white'}`}
+                className={`cursor-pointer ${isLight ? 'text-[#78716C] hover:text-[#1C1917]' : 'text-white/40 hover:text-white'}`}
               >
                 ×
               </button>
             </div>
             <div className="space-y-1 text-[12px]">
-              <div className="flex justify-between"><span className={isLight ? "text-slate-400" : "text-white/40"}>时刻 (Time):</span> <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{selectedPoint.time}</span></div>
-              <div className="flex justify-between"><span className={isLight ? "text-slate-400" : "text-white/40"}>位置 (Coords):</span> <span className={isLight ? "text-slate-700" : "text-[#E0E0E0]"}>{selectedPoint.latitude}°N, {selectedPoint.longitude}°E</span></div>
-              <div className="flex justify-between"><span className={isLight ? "text-slate-400" : "text-white/40"}>高度 (Altitude):</span> <span className={isLight ? "text-slate-700" : "text-[#E0E0E0]"}>{selectedPoint.altitude} m</span></div>
-              <div className="flex justify-between"><span className={isLight ? "text-slate-400" : "text-white/40"}>速度 (Airspeed):</span> <span className={isLight ? "text-slate-700" : "text-[#E0E0E0]"}>{selectedPoint.speed} km/h</span></div>
-              <div className="flex justify-between"><span className={isLight ? "text-slate-400" : "text-white/40"}>航向 (Heading):</span> <span className={isLight ? "text-slate-700" : "text-[#E0E0E0]"}>{selectedPoint.heading}°</span></div>
-              <div className={`h-px my-1.5 ${isLight ? 'bg-slate-200' : 'bg-[#2A2A2C]'}`}></div>
+              <div className="flex justify-between"><span className={isLight ? "text-[#78716C]" : "text-white/40"}>时刻 (Time):</span> <span className={`font-bold ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>{selectedPoint.time}</span></div>
+              <div className="flex justify-between"><span className={isLight ? "text-[#78716C]" : "text-white/40"}>位置 (Coords):</span> <span className={isLight ? "text-[#44403C]" : "text-[#E0E0E0]"}>{selectedPoint.latitude}°N, {selectedPoint.longitude}°E</span></div>
+              <div className="flex justify-between"><span className={isLight ? "text-[#78716C]" : "text-white/40"}>高度 (Altitude):</span> <span className={isLight ? "text-[#44403C]" : "text-[#E0E0E0]"}>{selectedPoint.altitude} m</span></div>
+              <div className="flex justify-between"><span className={isLight ? "text-[#78716C]" : "text-white/40"}>速度 (Airspeed):</span> <span className={isLight ? "text-[#44403C]" : "text-[#E0E0E0]"}>{selectedPoint.speed} km/h</span></div>
+              <div className="flex justify-between"><span className={isLight ? "text-[#78716C]" : "text-white/40"}>航向 (Heading):</span> <span className={isLight ? "text-[#44403C]" : "text-[#E0E0E0]"}>{selectedPoint.heading}°</span></div>
+              <div className={`h-px my-1.5 ${isLight ? 'bg-[#DDD7C8]' : 'bg-[#2A2A2C]'}`}></div>
               <div className="flex justify-between">
-                <span className={isLight ? "text-slate-400" : "text-white/40"}>对应算法结果:</span>
-                <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                <span className={isLight ? "text-[#78716C]" : "text-white/40"}>对应算法结果:</span>
+                <span className={`font-bold ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>
                   {selectedPoint.algorithms[mappedAlgorithmId]?.value} {ALGORITHMS.find(a => a.id === mappedAlgorithmId)?.unit}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className={isLight ? "text-slate-400" : "text-white/40"}>风险等级 (Risk):</span>
+                <span className={isLight ? "text-[#78716C]" : "text-white/40"}>风险等级 (Risk):</span>
                 <span style={{ color: getRiskColor(selectedPoint) }} className="font-bold">
                   {getRiskLabel(selectedPoint)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className={isLight ? "text-slate-400" : "text-white/40"}>最大航程 (Max Cap):</span>
-                <span className={`font-bold ${isLight ? 'text-slate-900' : 'text-white'}`}>{selectedPoint.maxDistance >= 100 ? '≥100km' : `${selectedPoint.maxDistance} km`}</span>
+                <span className={isLight ? "text-[#78716C]" : "text-white/40"}>最大航程 (Max Cap):</span>
+                <span className={`font-bold ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>{selectedPoint.maxDistance >= 100 ? '≥100km' : `${selectedPoint.maxDistance} km`}</span>
               </div>
             </div>
             <button
               onClick={() => onSelectIndex(selectedPoint.id)}
               className={`mt-2 w-full text-center py-1 text-[12px] font-bold rounded-sm transition-colors cursor-pointer border ${
                 isLight 
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-300' 
+                  ? 'bg-[#EAE4D6] hover:bg-[#DDD5C5] text-[#1C1917] border-[#CDC5B4]' 
                   : 'bg-[#2A2A2C] border-white/15 hover:bg-white/10 text-white'
               }`}
             >
@@ -842,35 +863,35 @@ export default function FlightMap({
 
         {/* Map Help / Legend Drawer */}
         <div className={`absolute top-3 left-3 px-2 py-1.5 rounded-sm text-[12px] font-mono space-y-1 border ${
-          isLight ? 'bg-white/95 border-slate-300 text-slate-600 shadow-sm' : 'bg-[#121214]/90 border-[#2A2A2C] text-white/50'
+          isLight ? 'bg-[#FAF7F0]/95 border-[#CDC5B4] text-[#57534E] shadow-sm' : 'bg-[#121214]/90 border-[#2A2A2C] text-white/50'
         }`}>
-          <div className={`flex items-center gap-1.5 font-bold mb-1 ${isLight ? 'text-slate-800' : 'text-white/80'}`}>
+          <div className={`flex items-center gap-1.5 font-bold mb-1 ${isLight ? 'text-[#1C1917]' : 'text-white/80'}`}>
             <HelpCircle size={10} />
             <span>地图操作指南</span>
           </div>
           <div>• 拖拽地图可平移，滚轮缩放</div>
           <div>• 点击航迹点可锁定并查看详情</div>
           <div>• 虚线部分代表预估/未飞行航线</div>
-          <div className={`flex items-center gap-1.5 mt-1.5 pt-1.5 border-t ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]/50'}`}>
-            <span className={`w-2.5 h-1 inline-block ${isLight ? 'bg-slate-800' : 'bg-white'}`}></span>
+          <div className={`flex items-center gap-1.5 mt-1.5 pt-1.5 border-t ${isLight ? 'border-[#DDD7C8]' : 'border-[#2A2A2C]/50'}`}>
+            <span className={`w-2.5 h-1 inline-block ${isLight ? 'bg-[#1C1917]' : 'bg-white'}`}></span>
             <span>{isLight ? '黑色' : '白色'}实线箭头: 预估可航行距离</span>
           </div>
         </div>
 
         {/* Floating Mode Selector Box */}
-        <div className={`absolute top-3 right-3 z-10 w-[280px] rounded-sm p-3 shadow-2xl font-mono text-xs select-none border transition-colors duration-200 ${
-          isLight ? 'bg-white/95 border-slate-300 text-slate-800 shadow-slate-300/50' : 'bg-[#121214]/95 border-[#2A2A2C] text-[#E0E0E0]'
+        <div className={`absolute top-3 right-3 z-10 w-[280px] rounded-sm p-3 shadow-xl font-mono text-xs select-none border transition-colors duration-200 ${
+          isLight ? 'bg-[#FAF7F0]/95 border-[#CDC5B4] text-[#1C1917]' : 'bg-[#121214]/95 border-[#2A2A2C] text-[#E0E0E0]'
         }`}>
           {/* Mode Switch Tabs */}
           <div className={`grid grid-cols-2 gap-1 p-1 border rounded-sm mb-3 ${
-            isLight ? 'bg-slate-100 border-slate-200' : 'bg-black/40 border-[#2A2A2C]'
+            isLight ? 'bg-[#EAE4D6] border-[#CDC5B4]' : 'bg-black/40 border-[#2A2A2C]'
           }`}>
             <button
               onClick={() => onToggleMode('live')}
               className={`py-1.5 text-[11px] font-bold rounded-xs cursor-pointer transition-all flex items-center justify-center gap-1 ${
                 systemMode === 'live'
-                  ? (isLight ? 'bg-white text-amber-600 shadow-xs border border-slate-200 font-bold' : 'bg-[#2A2A2C] text-[#FF9F0A] border-white/5 shadow-xs font-bold')
-                  : (isLight ? 'text-slate-500 hover:text-slate-800' : 'text-white/40 hover:text-white')
+                  ? (isLight ? 'bg-[#FAF7F0] text-[#D97706] shadow-xs border border-[#CDC5B4] font-bold' : 'bg-[#2A2A2C] text-[#FF9F0A] border-white/5 shadow-xs font-bold')
+                  : (isLight ? 'text-[#78716C] hover:text-[#1C1917]' : 'text-white/40 hover:text-white')
               }`}
             >
               <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse"></span>
@@ -880,8 +901,8 @@ export default function FlightMap({
               onClick={() => onToggleMode('history')}
               className={`py-1.5 text-[11px] font-bold rounded-xs cursor-pointer transition-all flex items-center justify-center gap-1 ${
                 systemMode === 'history'
-                  ? (isLight ? 'bg-white text-blue-600 shadow-xs border border-slate-200 font-bold' : 'bg-[#2A2A2C] text-[#0A84FF] border-white/5 shadow-xs font-bold')
-                  : (isLight ? 'text-slate-500 hover:text-slate-800' : 'text-white/40 hover:text-white')
+                  ? (isLight ? 'bg-[#FAF7F0] text-[#0284C7] shadow-xs border border-[#CDC5B4] font-bold' : 'bg-[#2A2A2C] text-[#0A84FF] border-white/5 shadow-xs font-bold')
+                  : (isLight ? 'text-[#78716C] hover:text-[#1C1917]' : 'text-white/40 hover:text-white')
               }`}
             >
               <Clock size={11} />
@@ -894,9 +915,9 @@ export default function FlightMap({
 
             {systemMode === 'live' ? (
               <div className={`border p-2.5 rounded-sm flex items-center justify-start ${
-                isLight ? 'bg-slate-50 border-slate-200' : 'bg-black/20 border-[#2A2A2C]'
+                isLight ? 'bg-[#EAE4D6] border-[#CDC5B4]' : 'bg-black/20 border-[#2A2A2C]'
               }`}>
-                <span className="text-[#FF9F0A] font-bold text-[14px] tracking-wider">20260702_B651N_01</span>
+                <span className="text-[#D97706] font-bold text-[14px] tracking-wider">20260702_B651N_01</span>
               </div>
             ) : (
               <div className="space-y-3">
@@ -917,12 +938,12 @@ export default function FlightMap({
                       onClick={() => setIsCalendarOpen(!isCalendarOpen)}
                       className={`w-full flex items-center justify-between border rounded-sm px-2.5 py-1.5 text-xs focus:outline-none cursor-pointer font-mono transition-all ${
                         isLight 
-                          ? 'bg-white hover:bg-slate-50 border-slate-300 text-slate-800' 
+                          ? 'bg-[#FAF7F0] hover:bg-[#EAE4D6] border-[#CDC5B4] text-[#1C1917]' 
                           : 'bg-black/40 hover:bg-black/60 border-[#2A2A2C] hover:border-zinc-500 text-white'
                       }`}
                     >
                       <div className="flex items-center gap-1.5">
-                        <Clock size={12} className={isLight ? "text-blue-600" : "text-[#0A84FF]"} />
+                        <Clock size={12} className={isLight ? "text-[#0284C7]" : "text-[#0A84FF]"} />
                         <span className="font-bold">
                           {!startDateFilter
                             ? '全部日期 (All Dates)' 
@@ -931,30 +952,30 @@ export default function FlightMap({
                               : `${startDateFilter} 至 ${endDateFilter}`}
                         </span>
                       </div>
-                      <span className={`text-[9px] ${isLight ? 'text-slate-400' : 'text-white/40'}`}>{isCalendarOpen ? '▲' : '▼'}</span>
+                      <span className={`text-[9px] ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>{isCalendarOpen ? '▲' : '▼'}</span>
                     </button>
                     
                     {/* Calendar Popover */}
                     {isCalendarOpen && (
                       <div className={`absolute top-full left-0 right-0 mt-1 z-30 border rounded-sm p-3 shadow-2xl font-mono ${
-                        isLight ? 'bg-white border-slate-300 text-slate-800 shadow-slate-300/60' : 'bg-[#121214] border-[#2A2A2C] text-white'
+                        isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#1C1917]' : 'bg-[#121214] border-[#2A2A2C] text-white'
                       }`}>
                         {/* Month Picker Header */}
                         <div className={`flex items-center justify-between mb-2.5 pb-2 border-b ${
-                          isLight ? 'border-slate-200' : 'border-[#2A2A2C]/50'
+                          isLight ? 'border-[#DDD7C8]' : 'border-[#2A2A2C]/50'
                         }`}>
                           <button 
                             type="button"
                             onClick={handlePrevMonth}
                             className={`px-1.5 py-0.5 border rounded-xs cursor-pointer text-[10px] ${
                               isLight 
-                                ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700' 
+                                ? 'bg-[#EAE4D6] hover:bg-[#DDD5C5] border-[#CDC5B4] text-[#1C1917]' 
                                 : 'bg-black/20 hover:bg-white/5 border-[#2A2A2C] text-white/60 hover:text-white'
                             }`}
                           >
                             &lt;
                           </button>
-                          <span className={`text-[11px] font-bold tracking-wider ${isLight ? 'text-slate-900' : 'text-white'}`}>
+                          <span className={`text-[11px] font-bold tracking-wider ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>
                             {calendarYear}年 {calendarMonth + 1}月
                           </span>
                           <button 
@@ -962,7 +983,7 @@ export default function FlightMap({
                             onClick={handleNextMonth}
                             className={`px-1.5 py-0.5 border rounded-xs cursor-pointer text-[10px] ${
                               isLight 
-                                ? 'bg-slate-100 hover:bg-slate-200 border-slate-300 text-slate-700' 
+                                ? 'bg-[#EAE4D6] hover:bg-[#DDD5C5] border-[#CDC5B4] text-[#1C1917]' 
                                 : 'bg-black/20 hover:bg-white/5 border-[#2A2A2C] text-white/60 hover:text-white'
                             }`}
                           >
@@ -972,7 +993,7 @@ export default function FlightMap({
 
                         {/* Weekdays */}
                         <div className={`grid grid-cols-7 gap-1 text-center text-[9px] font-bold mb-1 ${
-                          isLight ? 'text-slate-400' : 'text-white/30'
+                          isLight ? 'text-[#78716C]' : 'text-white/30'
                         }`}>
                           <span>日</span>
                           <span>一</span>
@@ -1014,17 +1035,17 @@ export default function FlightMap({
                                 }}
                                 className={`h-6 w-full text-[10px] font-bold flex flex-col items-center justify-center relative transition-all cursor-pointer ${
                                   isSelected
-                                    ? (isLight ? 'bg-blue-600 text-white rounded-xs' : 'bg-[#0A84FF] text-white rounded-xs')
+                                    ? (isLight ? 'bg-[#0284C7] text-white rounded-xs' : 'bg-[#0A84FF] text-white rounded-xs')
                                     : isInRange
-                                      ? (isLight ? 'bg-blue-100 text-blue-800' : 'bg-[#0A84FF]/25 text-white')
+                                      ? (isLight ? 'bg-sky-100 text-sky-900' : 'bg-[#0A84FF]/25 text-white')
                                       : hasFlights
-                                        ? (isLight ? 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-xs' : 'bg-[#0A84FF]/10 text-[#0A84FF] hover:bg-[#0A84FF]/20 border border-[#0A84FF]/25 rounded-xs')
-                                        : (isLight ? 'text-slate-600 hover:bg-slate-100 rounded-xs' : 'text-white/40 hover:bg-white/5 hover:text-white/90 rounded-xs')
+                                        ? (isLight ? 'bg-sky-50 text-[#0284C7] hover:bg-sky-100 border border-sky-200 rounded-xs' : 'bg-[#0A84FF]/10 text-[#0A84FF] hover:bg-[#0A84FF]/20 border border-[#0A84FF]/25 rounded-xs')
+                                        : (isLight ? 'text-[#44403C] hover:bg-[#EAE4D6] rounded-xs' : 'text-white/40 hover:bg-white/5 hover:text-white/90 rounded-xs')
                                 }`}
                               >
                                 <span>{item.day}</span>
                                 {hasFlights && !isSelected && (
-                                  <span className={`absolute bottom-0.5 w-1 h-1 rounded-full ${isLight ? 'bg-blue-600' : 'bg-[#0A84FF]'}`} />
+                                  <span className={`absolute bottom-0.5 w-1 h-1 rounded-full ${isLight ? 'bg-[#0284C7]' : 'bg-[#0A84FF]'}`} />
                                 )}
                               </button>
                             );
@@ -1032,7 +1053,7 @@ export default function FlightMap({
                         </div>
 
                         {/* Range Helper Text */}
-                        <div className={`text-[9px] text-center mt-2.5 ${isLight ? 'text-slate-400' : 'text-white/30'}`}>
+                        <div className={`text-[9px] text-center mt-2.5 ${isLight ? 'text-[#78716C]' : 'text-white/30'}`}>
                           {startDateFilter && !endDateFilter ? '请选择结束日期' : '点击两个日期来选择时间范围'}
                         </div>
 
@@ -1045,7 +1066,7 @@ export default function FlightMap({
                             setIsCalendarOpen(false);
                           }}
                           className={`w-full mt-2 pt-2 border-t text-center text-[10px] hover:underline cursor-pointer font-bold block ${
-                            isLight ? 'border-slate-200 text-blue-600' : 'border-[#2A2A2C]/50 text-[#0A84FF]'
+                            isLight ? 'border-[#DDD7C8] text-[#0284C7]' : 'border-[#2A2A2C]/50 text-[#0A84FF]'
                           }`}
                         >
                           显示全部归档架次
@@ -1057,21 +1078,21 @@ export default function FlightMap({
 
                 {/* Interactive Flight List */}
                 <div className="space-y-1">
-                  <div className={`text-[12px] font-normal pb-1 ${isLight ? 'text-slate-500' : 'text-white/50'}`}>
+                  <div className={`text-[12px] font-normal pb-1 ${isLight ? 'text-[#78716C]' : 'text-white/50'}`}>
                     <span>历史架次:</span>
                   </div>
                   <div className={`border rounded-sm overflow-hidden ${
-                    isLight ? 'border-slate-200 bg-white' : 'border-[#2A2A2C] bg-black/25'
+                    isLight ? 'border-[#CDC5B4] bg-[#FAF7F0]' : 'border-[#2A2A2C] bg-black/25'
                   }`}>
                     {/* Fixed Table Header */}
                     <div className={`flex justify-between items-center px-2.5 py-1.5 text-[9px] font-bold border-b font-mono ${
-                      isLight ? 'text-slate-500 bg-slate-50 border-slate-200' : 'text-white/40 bg-white/5 border-[#2A2A2C]'
+                      isLight ? 'text-[#78716C] bg-[#EAE4D6] border-[#CDC5B4]' : 'text-white/40 bg-white/5 border-[#2A2A2C]'
                     }`}>
                       <button
                         type="button"
                         onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
                         className={`w-[63%] transition-colors flex justify-center items-center gap-0.5 cursor-pointer select-none ${
-                          isLight ? 'hover:text-slate-800' : 'hover:text-white'
+                          isLight ? 'hover:text-[#1C1917]' : 'hover:text-white'
                         }`}
                       >
                         架次编号 {sortOrder === 'desc' ? '▼' : '▲'}
@@ -1083,11 +1104,11 @@ export default function FlightMap({
                     {/* Scrollable List Body */}
                     <div className={`max-h-[160px] overflow-y-auto divide-y ${
                       isLight 
-                        ? 'divide-slate-100 scrollbar-thin scrollbar-thumb-slate-300' 
+                        ? 'divide-[#DDD7C8] custom-scrollbar' 
                         : 'scrollbar-thin scrollbar-thumb-zinc-850 divide-[#2A2A2C]/30'
                     }`}>
                       {sortedHistoryFlights.length === 0 ? (
-                        <div className={`text-center py-6 text-[11px] font-mono ${isLight ? 'text-slate-400' : 'text-white/30'}`}>
+                        <div className={`text-center py-6 text-[11px] font-mono ${isLight ? 'text-[#78716C]' : 'text-white/30'}`}>
                           该日期无归档架次
                         </div>
                       ) : (
@@ -1102,8 +1123,8 @@ export default function FlightMap({
                               className={`w-full text-left px-2.5 py-2 transition-all cursor-pointer flex justify-between items-center ${
                                 isLight
                                   ? (isSelected
-                                      ? 'bg-blue-50 text-blue-700 font-bold border-l-2 border-blue-600'
-                                      : 'bg-transparent text-slate-600 hover:bg-slate-50 border-l-2 border-transparent')
+                                      ? 'bg-sky-100/70 text-[#0284C7] font-bold border-l-2 border-[#0284C7]'
+                                      : 'bg-transparent text-[#44403C] hover:bg-[#EAE4D6] border-l-2 border-transparent')
                                   : (isSelected
                                       ? 'bg-[#0A84FF]/15 text-white font-bold border-l-2 border-[#0A84FF]'
                                       : 'bg-transparent text-white/50 hover:bg-white/5 hover:text-white border-l-2 border-transparent')
@@ -1111,15 +1132,15 @@ export default function FlightMap({
                             >
                               <span className={`w-[63%] text-center text-[11px] font-mono tracking-wide truncate ${
                                 isLight 
-                                  ? (isSelected ? 'text-blue-700 font-bold' : 'text-slate-800')
+                                  ? (isSelected ? 'text-[#0284C7] font-bold' : 'text-[#1C1917]')
                                   : (isSelected ? 'text-[#0A84FF]' : 'text-white/80')
                               }`}>
                                 {f.id}
                               </span>
-                              <span className={`w-[22%] text-center text-[10.5px] font-mono ${isLight ? 'text-slate-500' : 'text-white/60'}`}>
+                              <span className={`w-[22%] text-center text-[10.5px] font-mono ${isLight ? 'text-[#78716C]' : 'text-white/60'}`}>
                                 {timeFormatted}
                               </span>
-                              <span className={`w-[15%] text-center text-[10.5px] font-mono ${isLight ? 'text-slate-500' : 'text-white/60'}`}>
+                              <span className={`w-[15%] text-center text-[10.5px] font-mono ${isLight ? 'text-[#78716C]' : 'text-white/60'}`}>
                                 {Number(f.durationHours.toFixed(2))}h
                               </span>
                             </button>
@@ -1137,7 +1158,7 @@ export default function FlightMap({
 
       {/* Grid Coordinates Footer Bar */}
       <div className={`border-t px-3 py-1.5 flex items-center justify-between text-[12px] font-mono transition-colors duration-200 ${
-        isLight ? 'bg-[#F8FAFC] border-[#CBD5E1] text-slate-500' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/40'
+        isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#78716C]' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/40'
       }`}>
         <div className="flex gap-4">
           <span>图区中心: 35.5000°N, 119.0000°E</span>

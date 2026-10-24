@@ -72,35 +72,35 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
   return (
     <div 
       className={`border border-b-0 rounded-t-md overflow-visible select-none transition-colors duration-200 ${
-        isLight ? 'bg-[#F1F5F9] border-[#CBD5E1]' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+        isLight ? 'bg-[#EAE4D6] border-[#CDC5B4]' : 'bg-[#1A1A1C] border-[#2A2A2C]'
       }`} 
       id="pc-window-titlebar"
     >
       {/* Primary OS Window Header */}
       <div 
         className={`px-3.5 py-2 flex items-center justify-between border-b text-[12px] font-mono transition-colors duration-200 ${
-          isLight ? 'bg-[#F1F5F9] border-[#CBD5E1] text-slate-800' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/80'
+          isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#292524]' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/80'
         }`}
       >
         {/* Left: Client Icon & Core Label */}
         <div className="flex items-center gap-2 font-bold">
-          <Terminal size={14} className={isLight ? 'text-slate-600' : 'text-white/60'} />
-          <span className={`tracking-tight text-[12px] uppercase ${isLight ? 'text-slate-900' : 'text-white'}`}>
+          <Terminal size={14} className={isLight ? 'text-[#57534E]' : 'text-white/60'} />
+          <span className={`tracking-tight text-[12px] uppercase ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>
             飞机积冰协同态势监测与预测系统 v4.2
           </span>
         </div>
 
         {/* Center: Live Avionics Network & Time Info */}
-        <div className={`flex items-center gap-6 text-[12px] ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+        <div className={`flex items-center gap-6 text-[12px] ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>
           <div className="flex items-center gap-1.5">
-            <Cpu size={11} className={isLight ? 'text-slate-400' : 'text-white/30'} />
-            <span>处理器负载: <strong className={isLight ? 'text-slate-800' : 'text-white/70'}>{cpuLoad.toFixed(1)}%</strong></span>
+            <Cpu size={11} className={isLight ? 'text-[#A8A29E]' : 'text-white/30'} />
+            <span>处理器负载: <strong className={isLight ? 'text-[#1C1917]' : 'text-white/70'}>{cpuLoad.toFixed(1)}%</strong></span>
           </div>
           <div className="flex items-center gap-1.5">
-            <HardDrive size={11} className={isLight ? 'text-slate-400' : 'text-white/30'} />
-            <span>内存占用: <strong className={isLight ? 'text-slate-800' : 'text-white/70'}>{ramLoad.toFixed(1)}GB</strong></span>
+            <HardDrive size={11} className={isLight ? 'text-[#A8A29E]' : 'text-white/30'} />
+            <span>内存占用: <strong className={isLight ? 'text-[#1C1917]' : 'text-white/70'}>{ramLoad.toFixed(1)}GB</strong></span>
           </div>
-          <div className={`font-bold border-l pl-4 ${isLight ? 'text-slate-700 border-slate-300' : 'text-white/60 border-[#2A2A2C]'}`}>
+          <div className={`font-bold border-l pl-4 ${isLight ? 'text-[#44403C] border-[#CDC5B4]' : 'text-white/60 border-[#2A2A2C]'}`}>
             {systemTime}
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
         <div className="flex items-center gap-1">
           <button 
             className={`w-5 h-5 flex items-center justify-center rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-200' : 'text-white/40 hover:text-white hover:bg-white/10'
+              isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD6C5]' : 'text-white/40 hover:text-white hover:bg-white/10'
             }`}
             title="最小化"
           >
@@ -117,7 +117,7 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
           </button>
           <button 
             className={`w-5 h-5 flex items-center justify-center rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-400 hover:text-slate-700 hover:bg-slate-200' : 'text-white/40 hover:text-white hover:bg-white/10'
+              isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD6C5]' : 'text-white/40 hover:text-white hover:bg-white/10'
             }`}
             title="最大化"
           >
@@ -126,7 +126,7 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
           <button 
             onClick={onResetAll}
             className={`w-5 h-5 flex items-center justify-center rounded-sm transition-colors cursor-pointer ${
-              isLight ? 'text-slate-400 hover:bg-red-50 hover:text-red-600' : 'text-white/40 hover:text-red-200 hover:bg-red-600/40'
+              isLight ? 'text-[#78716C] hover:bg-red-100/70 hover:text-red-700' : 'text-white/40 hover:text-red-200 hover:bg-red-600/40'
             }`}
             title="重启演示与重置"
           >
@@ -138,13 +138,13 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
       {/* Dropdown File / View Menu Bar (PC Desktop layout) */}
       <div 
         className={`px-3 py-1.5 flex items-center justify-between border-b text-[12px] font-mono transition-colors duration-200 ${
-          isLight ? 'bg-[#FFFFFF] border-[#E2E8F0] text-slate-600' : 'bg-[#121214] border-[#2A2A2C] text-white/50'
+          isLight ? 'bg-[#F6F3EB] border-[#DDD7C8] text-[#57534E]' : 'bg-[#121214] border-[#2A2A2C] text-white/50'
         }`}
       >
         <div className="flex gap-2 items-center">
           <span 
             className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-              isLight ? 'hover:text-slate-900 hover:bg-slate-100' : 'hover:text-white hover:bg-white/5'
+              isLight ? 'hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'hover:text-white hover:bg-white/5'
             }`} 
             onClick={onResetAll}
           >
@@ -157,8 +157,8 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
               onClick={() => setViewMenuOpen(prev => !prev)}
               className={`px-2.5 py-1 rounded cursor-pointer transition-colors flex items-center gap-1 ${
                 viewMenuOpen 
-                  ? (isLight ? 'bg-slate-100 text-slate-900 font-bold' : 'bg-white/15 text-white font-bold') 
-                  : (isLight ? 'hover:text-slate-900 hover:bg-slate-100' : 'hover:text-white hover:bg-white/5')
+                  ? (isLight ? 'bg-[#EAE4D6] text-[#1C1917] font-bold' : 'bg-white/15 text-white font-bold') 
+                  : (isLight ? 'hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'hover:text-white hover:bg-white/5')
               }`}
             >
               <span>视图(V)</span>
@@ -167,14 +167,14 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
             {viewMenuOpen && (
               <div 
                 className={`absolute top-full left-0 mt-1 z-50 min-w-[240px] rounded-md shadow-2xl p-1.5 border font-mono text-xs select-none animate-in fade-in zoom-in-95 duration-100 ${
-                  isLight ? 'bg-white border-[#CBD5E1] text-slate-800 shadow-slate-300/50' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/90 shadow-black/80'
+                  isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#292524] shadow-[0_12px_32px_rgba(40,30,20,0.18)]' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/90 shadow-black/80'
                 }`}
               >
                 {/* Section 1: 主题颜色切换选项 */}
                 <div className={`px-2.5 py-1.5 text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                  isLight ? 'text-slate-500' : 'text-white/40'
+                  isLight ? 'text-[#78716C]' : 'text-white/40'
                 }`}>
-                  <Palette size={13} className={isLight ? 'text-blue-600' : 'text-[#00E5FF]'} />
+                  <Palette size={13} className={isLight ? 'text-[#0284C7]' : 'text-[#00E5FF]'} />
                   <span>主题颜色 (Theme Color)</span>
                 </div>
 
@@ -183,8 +183,8 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
                   onClick={() => { setTheme('dark'); setViewMenuOpen(false); }}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded text-left transition-colors cursor-pointer ${
                     theme === 'dark'
-                      ? (isLight ? 'bg-slate-100 text-slate-900 font-bold' : 'bg-white/10 text-white font-bold')
-                      : (isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/5 text-white/70')
+                      ? (isLight ? 'bg-[#ECE5D8] text-[#1C1917] font-bold' : 'bg-white/10 text-white font-bold')
+                      : (isLight ? 'hover:bg-[#EAE4D6] text-[#44403C]' : 'hover:bg-white/5 text-white/70')
                   }`}
                 >
                   <div className="flex items-center gap-2">
@@ -199,23 +199,23 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
                   onClick={() => { setTheme('light'); setViewMenuOpen(false); }}
                   className={`w-full flex items-center justify-between px-2.5 py-2 rounded text-left transition-colors cursor-pointer ${
                     theme === 'light'
-                      ? (isLight ? 'bg-blue-50 text-blue-600 font-bold' : 'bg-white/10 text-white font-bold')
-                      : (isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/5 text-white/70')
+                      ? (isLight ? 'bg-[#ECE5D8] text-[#1C1917] font-bold' : 'bg-white/10 text-white font-bold')
+                      : (isLight ? 'hover:bg-[#EAE4D6] text-[#44403C]' : 'hover:bg-white/5 text-white/70')
                   }`}
                 >
                   <div className="flex items-center gap-2">
                     <Sun size={14} className="text-amber-500" />
-                    <span>浅色主题 (新增浅色版本)</span>
+                    <span>复古白 (Modern Retro White)</span>
                   </div>
                   {theme === 'light' && <Check size={14} className="text-[#34C759]" />}
                 </button>
 
                 {/* Divider */}
-                <div className={`my-1.5 border-t ${isLight ? 'border-slate-200' : 'border-white/10'}`} />
+                <div className={`my-1.5 border-t ${isLight ? 'border-[#DDD7C8]' : 'border-white/10'}`} />
 
                 {/* Section 2: 面板切换 */}
                 <div className={`px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${
-                  isLight ? 'text-slate-500' : 'text-white/40'
+                  isLight ? 'text-[#78716C]' : 'text-white/40'
                 }`}>
                   <span>工作区视图 (Workspaces)</span>
                 </div>
@@ -224,40 +224,40 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
                   onClick={() => { onSelectRightTab?.('flight'); setViewMenuOpen(false); }}
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors cursor-pointer ${
                     rightTab === 'flight'
-                      ? (isLight ? 'bg-slate-100 font-bold text-slate-900' : 'bg-white/10 font-bold text-white')
-                      : (isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/5 text-white/70')
+                      ? (isLight ? 'bg-[#ECE5D8] font-bold text-[#1C1917]' : 'bg-white/10 font-bold text-white')
+                      : (isLight ? 'hover:bg-[#EAE4D6] text-[#44403C]' : 'hover:bg-white/5 text-white/70')
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <Plane size={13} className="text-cyan-500" />
+                    <Plane size={13} className="text-[#0284C7]" />
                     <span>飞行遥测监测面板</span>
                   </div>
-                  {rightTab === 'flight' && <Check size={13} className="text-cyan-500" />}
+                  {rightTab === 'flight' && <Check size={13} className="text-[#0284C7]" />}
                 </button>
 
                 <button
                   onClick={() => { onSelectRightTab?.('icing'); setViewMenuOpen(false); }}
                   className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-left transition-colors cursor-pointer ${
                     rightTab === 'icing'
-                      ? (isLight ? 'bg-slate-100 font-bold text-slate-900' : 'bg-white/10 font-bold text-white')
-                      : (isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/5 text-white/70')
+                      ? (isLight ? 'bg-[#ECE5D8] font-bold text-[#1C1917]' : 'bg-white/10 font-bold text-white')
+                      : (isLight ? 'hover:bg-[#EAE4D6] text-[#44403C]' : 'hover:bg-white/5 text-white/70')
                   }`}
                 >
                   <div className="flex items-center gap-2">
-                    <BarChart3 size={13} className="text-amber-500" />
+                    <BarChart3 size={13} className="text-[#D97706]" />
                     <span>积冰算法监测产品网格</span>
                   </div>
-                  {rightTab === 'icing' && <Check size={13} className="text-amber-500" />}
+                  {rightTab === 'icing' && <Check size={13} className="text-[#D97706]" />}
                 </button>
 
                 {/* Divider */}
-                <div className={`my-1.5 border-t ${isLight ? 'border-slate-200' : 'border-white/10'}`} />
+                <div className={`my-1.5 border-t ${isLight ? 'border-[#DDD7C8]' : 'border-white/10'}`} />
 
                 {/* Reset View */}
                 <button
                   onClick={() => { onResetAll(); setViewMenuOpen(false); }}
                   className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded text-left transition-colors cursor-pointer ${
-                    isLight ? 'hover:bg-slate-100 text-slate-700' : 'hover:bg-white/5 text-white/70'
+                    isLight ? 'hover:bg-[#EAE4D6] text-[#44403C]' : 'hover:bg-white/5 text-white/70'
                   }`}
                 >
                   <RotateCcw size={13} />
@@ -268,25 +268,25 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
           </div>
 
           <span className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-            isLight ? 'hover:text-slate-900 hover:bg-slate-100' : 'hover:text-white hover:bg-white/5'
+            isLight ? 'hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'hover:text-white hover:bg-white/5'
           }`}>
             气象算法(A)
           </span>
           <span className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-            isLight ? 'hover:text-slate-900 hover:bg-slate-100' : 'hover:text-white hover:bg-white/5'
+            isLight ? 'hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'hover:text-white hover:bg-white/5'
           }`}>
             导出中心(E)
           </span>
           <span className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-            isLight ? 'hover:text-slate-900 hover:bg-slate-100' : 'hover:text-white hover:bg-white/5'
+            isLight ? 'hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'hover:text-white hover:bg-white/5'
           }`}>
             安全警告(W)
           </span>
           <span 
             className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-              isLight ? 'hover:text-slate-900 hover:bg-slate-100' : 'hover:text-white hover:bg-white/5'
+              isLight ? 'hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'hover:text-white hover:bg-white/5'
             }`} 
-            onClick={() => alert("本系统为PC客户端演示DEMO，采用纯离线矢量GIS技术及9套先进积冰监测算法模型，可在严苛弱网环境下提供秒级态势感知及最大航程预测。支持深色与浅色双主题无缝切换。")}
+            title="离线矢量GIS与9套积冰监测算法模型控制台"
           >
             帮助(H)
           </span>
@@ -298,15 +298,15 @@ export default function TitleBar({ onResetAll, rightTab = 'icing', onSelectRight
             onClick={toggleTheme}
             className={`flex items-center gap-1.5 px-2.5 py-0.5 rounded border transition-colors cursor-pointer text-[11px] font-medium ${
               isLight 
-                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:bg-slate-200' 
+                ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#44403C] hover:bg-[#E0D9C8]' 
                 : 'bg-white/5 border-white/15 text-white/70 hover:bg-white/10 hover:text-white'
             }`}
             title="点击快速切换主题颜色"
           >
             {theme === 'light' ? (
               <>
-                <Sun size={12} className="text-amber-500" />
-                <span>浅色主题</span>
+                <Sun size={12} className="text-amber-600" />
+                <span>复古白</span>
               </>
             ) : (
               <>

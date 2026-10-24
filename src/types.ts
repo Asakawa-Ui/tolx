@@ -51,6 +51,14 @@ export interface IcingAlgorithmDef {
   };
 }
 
+export interface IcingLevelConfig {
+  id: string;
+  name: string;
+  minThreshold: number;
+  color: string;
+  isBase?: boolean;
+}
+
 export interface ProductConfig {
   algorithmId: string;
   thresholds: {
@@ -66,6 +74,8 @@ export interface ProductConfig {
     moderate: string;
     severe: string;
   };
+  levels?: IcingLevelConfig[];
+  maxDistanceLimit?: number;
 }
 
 export interface SystemLog {
