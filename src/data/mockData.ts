@@ -2,105 +2,170 @@ import { IcingAlgorithmDef, FlightDataPoint, AlgorithmOutput } from '../types';
 
 export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
-    id: 'lwc',
-    name: 'LWC',
-    type: 'sensor',
-    unit: 'g/m³',
-    minVal: 0,
-    maxVal: 2.5,
-    defaultThresholds: { light: 0.5, moderate: 1.2, severe: 1.8 },
-    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
-  },
-  {
-    id: 'time',
-    name: 'Time',
-    type: 'ordinary',
-    unit: 'min',
-    minVal: 0,
-    maxVal: 120,
-    defaultThresholds: { light: 30, moderate: 60, severe: 90 }
-  },
-  {
     id: 'ic_index',
     name: 'IC指数',
+    paramName: 'IC 指数',
+    paramSymbol: 'IC',
     type: 'ordinary',
     unit: '',
     minVal: 0,
-    maxVal: 10,
-    defaultThresholds: { light: 3, moderate: 6, severe: 8.5 },
+    maxVal: 100,
+    thresholdDesc: '0 ≤ IC < 40 轻度；40 ≤ IC < 70 中度；70 ≤ IC 重度',
+    defaultThresholds: { light: 0, moderate: 40, severe: 70 },
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
     id: 'ic_improved',
     name: 'IC改进',
+    paramName: '改进 IC 指数',
+    paramSymbol: 'H',
     type: 'ordinary',
     unit: '',
     minVal: 0,
     maxVal: 10,
-    defaultThresholds: { light: 3, moderate: 6, severe: 8.5 },
+    thresholdDesc: '0 ≤ H < 4 轻度；4 ≤ H < 7 中度；7 ≤ H 重度',
+    defaultThresholds: { light: 0, moderate: 4, severe: 7 },
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
     id: 'temp_frost',
     name: '假霜点温度',
+    paramName: '假霜点判别量',
+    paramSymbol: 'diff',
     type: 'ordinary',
-    unit: '',
-    minVal: -40,
+    unit: '°C',
+    minVal: -20,
     maxVal: 10,
-    defaultThresholds: { light: -15, moderate: -5, severe: 5 },
-    levelLabels: { none: '无积冰', light: '有积冰', moderate: '中度以上积冰', severe: '中度以上积冰' }
+    thresholdDesc: 'thresh < diff ≤ 0 轻度；0 < diff 中度及以上',
+    defaultThresholds: { light: -5, moderate: 0, severe: 5 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度及以上', severe: '重度积冰' }
   },
   {
     id: 'icing_index',
     name: '积冰指数',
+    paramName: 'LWC 积冰指数',
+    paramSymbol: 'I',
     type: 'ordinary',
     unit: '',
     minVal: 0,
-    maxVal: 100,
-    defaultThresholds: { light: 25, moderate: 50, severe: 75 },
-    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '轻-中度积冰', severe: '重度积冰' }
+    maxVal: 10,
+    thresholdDesc: '1 ≤ I < 3 轻度；3 ≤ I < 6 轻-中度；6 ≤ I < 8 中度；8 ≤ I 重度',
+    defaultThresholds: { light: 1, lightModerate: 3, moderate: 6, severe: 8 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', lightModerate: '轻-中度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'xgb1',
-    name: 'XGB1',
+    id: 'xgb',
+    name: 'XGB',
+    paramName: 'XGB 预测积冰速率',
+    paramSymbol: 'ICR_XGB',
     type: 'ml',
-    unit: '',
+    unit: 'g/(dm²·h)',
     minVal: 0,
-    maxVal: 1,
-    defaultThresholds: { light: 0.25, moderate: 0.55, severe: 0.8 },
+    maxVal: 160,
+    thresholdDesc: '5 ≤ ICR < 60 轻度；60 ≤ ICR < 120 中度；ICR ≥ 120 重度',
+    defaultThresholds: { light: 5, moderate: 60, severe: 120 },
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'xgb2',
-    name: 'XGB2',
+    id: 'lgb',
+    name: 'LGB',
+    paramName: 'LightGBM 预测积冰速率',
+    paramSymbol: 'ICR_LGB',
     type: 'ml',
-    unit: '',
+    unit: 'g/(dm²·h)',
     minVal: 0,
-    maxVal: 1,
-    defaultThresholds: { light: 0.3, moderate: 0.6, severe: 0.85 },
+    maxVal: 160,
+    thresholdDesc: '5 ≤ ICR < 60 轻度；60 ≤ ICR < 120 中度；ICR ≥ 120 重度',
+    defaultThresholds: { light: 5, moderate: 60, severe: 120 },
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'xgb3',
-    name: 'XGB3',
+    id: 'catb',
+    name: 'CatB',
+    paramName: 'CatBoost 预测积冰速率',
+    paramSymbol: 'ICR_CatB',
     type: 'ml',
-    unit: '',
+    unit: 'g/(dm²·h)',
     minVal: 0,
-    maxVal: 1,
-    defaultThresholds: { light: 0.2, moderate: 0.5, severe: 0.75 },
+    maxVal: 160,
+    thresholdDesc: '5 ≤ ICR < 60 轻度；60 ≤ ICR < 120 中度；ICR ≥ 120 重度',
+    defaultThresholds: { light: 5, moderate: 60, severe: 120 },
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   },
   {
-    id: 'xgb4',
-    name: 'XGB4',
+    id: 'rf',
+    name: 'RF',
+    paramName: 'Random Forest 预测积冰速率',
+    paramSymbol: 'ICR_RF',
     type: 'ml',
-    unit: '',
+    unit: 'g/(dm²·h)',
     minVal: 0,
-    maxVal: 1,
-    defaultThresholds: { light: 0.35, moderate: 0.65, severe: 0.85 },
+    maxVal: 160,
+    thresholdDesc: '5 ≤ ICR < 60 轻度；60 ≤ ICR < 120 中度；ICR ≥ 120 重度',
+    defaultThresholds: { light: 5, moderate: 60, severe: 120 },
+    levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
+  },
+  {
+    id: 'probe',
+    name: '积冰探头',
+    paramName: '积冰质量速率',
+    paramSymbol: 'ICR_IDF',
+    type: 'sensor',
+    unit: 'g/(dm²·h)',
+    minVal: 0,
+    maxVal: 160,
+    thresholdDesc: '5 ≤ ICR_IDF < 60：轻度；60 ≤ ICR_IDF < 120：中度；ICR_IDF ≥ 120：重度',
+    defaultThresholds: { light: 5, moderate: 60, severe: 120 },
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   }
 ];
+
+export function evaluateIcingRisk(
+  algoId: string,
+  value: number,
+  thresholds: { light: number; lightModerate?: number; moderate: number; severe: number }
+): { level: 'None' | 'Light' | 'LightModerate' | 'Moderate' | 'Severe'; label: string } {
+  if (algoId === 'temp_frost') {
+    // 假霜点判别量 diff: thresh < diff <= 0 轻度; 0 < diff 中度及以上
+    const thresh = thresholds.light;
+    if (value > 0) {
+      if (thresholds.severe > 0 && value >= thresholds.severe) {
+        return { level: 'Severe', label: '重度积冰' };
+      }
+      return { level: 'Moderate', label: '中度及以上' };
+    }
+    if (value > thresh) {
+      return { level: 'Light', label: '轻度积冰' };
+    }
+    return { level: 'None', label: '无积冰' };
+  }
+
+  if (algoId === 'icing_index') {
+    // 1 <= I < 3 轻度；3 <= I < 6 轻-中度；6 <= I < 8 中度；8 <= I 重度
+    const thLight = thresholds.light;
+    const thLightMod = thresholds.lightModerate ?? 3;
+    const thMod = thresholds.moderate;
+    const thSev = thresholds.severe;
+
+    if (value >= thSev) return { level: 'Severe', label: '重度积冰' };
+    if (value >= thMod) return { level: 'Moderate', label: '中度积冰' };
+    if (value >= thLightMod) return { level: 'LightModerate', label: '轻-中度积冰' };
+    if (value >= thLight) return { level: 'Light', label: '轻度积冰' };
+    return { level: 'None', label: '无积冰' };
+  }
+
+  // Default algorithms (ic_index, ic_improved, xgb, lgb, catb, rf, probe)
+  if (value >= thresholds.severe) {
+    return { level: 'Severe', label: '重度积冰' };
+  }
+  if (value >= thresholds.moderate) {
+    return { level: 'Moderate', label: '中度积冰' };
+  }
+  if (value >= thresholds.light) {
+    return { level: 'Light', label: '轻度积冰' };
+  }
+  return { level: 'None', label: '无积冰' };
+}
 
 // Generate flight path from Shanghai Pudong (31.14N, 121.80E) to Beijing Capital (40.08N, 116.58E)
 export function generateFlightData(
@@ -181,6 +246,10 @@ export function generateFlightData(
       heading = Math.round(((Math.atan2(y, x) * 180 / Math.PI + 360) % 360));
     }
 
+    // Ground Speed (航速 / 地速 GS) - differs distinctly from True Airspeed (真空速 TAS) due to aloft winds
+    const windComponent = 42 + Math.sin(fraction * Math.PI * 2.2 + seedOffset) * 26 + (altitude / 7500) * 16;
+    const groundSpeed = Math.round(speed + windComponent);
+
     // Build algorithm outputs representing a cloud moisture structure
     let inCloud = false;
     let cloudIntensity = 0;
@@ -208,78 +277,94 @@ export function generateFlightData(
       cloudIntensity = 0;
     }
 
+    // Temperature (°C) - standard atmospheric lapse rate (-6.5°C/1000m) + cloud latent heat variation
+    const lapseTemp = 16.5 - (altitude / 1000) * 6.5;
+    const cloudTempDelta = inCloud ? (1.6 + cloudIntensity * 1.2) : 0;
+    const tempJitter = Math.sin(elapsedMinutes * 0.4 + seedOffset) * 0.5;
+    const temperature = Math.round((lapseTemp + cloudTempDelta + tempJitter) * 10) / 10;
+
+    // Relative Humidity (%) - dry aloft (20%-35%), surging in clouds (78%-96%)
+    let humidity = 35;
+    if (inCloud) {
+      humidity = Math.min(98, Math.round(76 + cloudIntensity * 18 + Math.sin(elapsedMinutes * 1.5) * 3));
+    } else {
+      humidity = Math.max(15, Math.round(36 - (altitude / 7500) * 14 + Math.sin(elapsedMinutes * 0.6) * 4));
+    }
+
     const algorithms: Record<string, AlgorithmOutput> = {};
 
     ALGORITHMS.forEach(algo => {
-      // Base output value
       let value = 0;
+      const noise = Math.sin(elapsedMinutes * 1.5) * 0.08;
+      const randomNoise = Math.sin(elapsedMinutes + seedOffset);
+
       if (inCloud) {
-        // Each algorithm responds differently to mimic real-world variance
-        let noise = Math.sin(elapsedMinutes * 1.5) * 0.08; // algorithmic noise
-        
-        if (algo.id === 'lwc') {
-          value = Math.max(0, Math.min(2.5, cloudIntensity * 2.1 + noise * 0.15));
-        } else if (algo.id === 'time') {
-          value = Math.min(120, (cloudIntensity * 90 + 10) + noise * 10);
-        } else if (algo.id === 'ic_index') {
-          value = Math.max(0, Math.min(10, cloudIntensity * 8.5 + noise * 0.5));
+        if (algo.id === 'ic_index') {
+          // 0-100 range: Light (0-40), Moderate (40-70), Severe (>=70)
+          value = Math.max(0, Math.min(100, cloudIntensity * 85 + noise * 10));
         } else if (algo.id === 'ic_improved') {
-          value = Math.max(0, Math.min(10, cloudIntensity * 8.2 + Math.cos(elapsedMinutes) * 0.4));
+          // 0-10 range: Light (0-4), Moderate (4-7), Severe (>=7)
+          value = Math.max(0, Math.min(10, cloudIntensity * 8.6 + Math.cos(elapsedMinutes) * 0.4));
         } else if (algo.id === 'temp_frost') {
-          value = Math.max(-40, Math.min(10, (cloudIntensity * 40 - 35) + noise * 5));
+          // -20 to 10 range: diff = T - T_frost. In cloud, diff rises to around -2 ~ +4
+          value = Math.max(-20, Math.min(10, (cloudIntensity * 12 - 7) + noise * 2));
         } else if (algo.id === 'icing_index') {
-          value = Math.max(0, Math.min(100, cloudIntensity * 85 + noise * 12));
-        } else if (algo.id === 'xgb1') {
-          value = Math.max(0, Math.min(1, cloudIntensity * 0.88 + Math.cos(elapsedMinutes * 0.8) * 0.02));
-        } else if (algo.id === 'xgb2') {
-          value = Math.max(0, Math.min(1, Math.pow(cloudIntensity, 1.2) * 0.92 + noise * 0.04));
-        } else if (algo.id === 'xgb3') {
-          value = Math.max(0, Math.min(1, cloudIntensity * 0.85 + Math.sin(elapsedMinutes * 1.1) * 0.03));
-        } else if (algo.id === 'xgb4') {
-          // Keep physical sensor-like growth or simulation
+          // 0-10 range: Light (1-3), Light-Moderate (3-6), Moderate (6-8), Severe (>=8)
+          value = Math.max(0, Math.min(10, cloudIntensity * 8.8 + noise * 0.6));
+        } else if (algo.id === 'xgb') {
+          // 0-160 range: Light (5-60), Moderate (60-120), Severe (>=120)
+          value = Math.max(0, Math.min(160, cloudIntensity * 138 + Math.cos(elapsedMinutes * 0.8) * 6));
+        } else if (algo.id === 'lgb') {
+          // 0-160 range
+          value = Math.max(0, Math.min(160, Math.pow(cloudIntensity, 1.1) * 135 + noise * 8));
+        } else if (algo.id === 'catb') {
+          // 0-160 range
+          value = Math.max(0, Math.min(160, cloudIntensity * 132 + Math.sin(elapsedMinutes * 1.1) * 7));
+        } else if (algo.id === 'rf') {
+          // 0-160 range
+          value = Math.max(0, Math.min(160, cloudIntensity * 126 + Math.cos(elapsedMinutes * 1.3) * 5));
+        } else if (algo.id === 'probe') {
+          // Physical accretion probe with de-icing cycle simulation
           const deiceStart = Math.round(totalSteps * 0.533);
           const deiceEnd = Math.round(totalSteps * 0.567);
           const startCloud = icingSeverity === 'heavy' ? Math.round(totalSteps * 0.267) : Math.round(totalSteps * 0.333);
           if (i < deiceStart) {
             const durationInCloud = i - startCloud;
-            const growthRate = 0.045 * (60 / totalSteps);
-            value = Math.max(0, Math.min(0.95, (durationInCloud * growthRate) + noise * 0.02));
+            const growthRate = 6.8 * (60 / totalSteps);
+            value = Math.max(0, Math.min(145, (durationInCloud * growthRate) + noise * 4));
           } else if (i >= deiceStart && i <= deiceEnd) {
             const deiceProgress = (i - (deiceStart - 1)) / (deiceEnd - deiceStart + 1);
-            value = Math.max(0.04, 0.85 - deiceProgress * 0.8);
+            value = Math.max(6, 130 - deiceProgress * 120);
           } else {
-            value = Math.max(0.04, 0.08 + (cloudIntensity * 0.3));
+            value = Math.max(6, 15 + (cloudIntensity * 45));
           }
         }
       } else {
-        // Out of cloud, very low background values or zero
-        const randomNoise = Math.sin(elapsedMinutes + seedOffset);
-        if (algo.id === 'lwc') value = 0.02 + Math.abs(randomNoise) * 0.04;
-        else if (algo.id === 'time') value = 5 + Math.abs(randomNoise) * 5;
-        else if (algo.id === 'ic_index') value = 0.1 + Math.abs(randomNoise) * 0.2;
-        else if (algo.id === 'ic_improved') value = 0.1 + Math.abs(randomNoise) * 0.15;
-        else if (algo.id === 'temp_frost') value = -35 + Math.abs(randomNoise) * 3;
-        else if (algo.id === 'icing_index') value = 8 + Math.abs(randomNoise) * 4;
-        else if (algo.id === 'xgb1') value = 0.02 + Math.abs(randomNoise) * 0.03;
-        else if (algo.id === 'xgb2') value = 0.01 + Math.abs(randomNoise) * 0.02;
-        else if (algo.id === 'xgb3') value = 0.02 + Math.abs(randomNoise) * 0.03;
-        else if (algo.id === 'xgb4') value = 0.01 + Math.abs(randomNoise) * 0.02;
+        // Out of cloud
+        if (algo.id === 'ic_index') value = Math.max(0, Math.abs(randomNoise) * 3);
+        else if (algo.id === 'ic_improved') value = Math.max(0, Math.abs(randomNoise) * 0.2);
+        else if (algo.id === 'temp_frost') value = -14 + Math.abs(randomNoise) * 3;
+        else if (algo.id === 'icing_index') value = 0.2 + Math.abs(randomNoise) * 0.4;
+        else if (algo.id === 'xgb') value = 1.2 + Math.abs(randomNoise) * 2;
+        else if (algo.id === 'lgb') value = 0.8 + Math.abs(randomNoise) * 1.5;
+        else if (algo.id === 'catb') value = 1.0 + Math.abs(randomNoise) * 1.8;
+        else if (algo.id === 'rf') value = 0.9 + Math.abs(randomNoise) * 1.6;
+        else if (algo.id === 'probe') value = 1.5 + Math.abs(randomNoise) * 1.2;
       }
 
       // Round to nice decimals
-      value = Math.round(value * 100) / 100;
+      value = Math.round(value * 10) / 10;
 
-      // Determine level based on default thresholds
-      let level: 'None' | 'Light' | 'Moderate' | 'Severe' = 'None';
-      if (value >= algo.defaultThresholds.severe) level = 'Severe';
-      else if (value >= algo.defaultThresholds.moderate) level = 'Moderate';
-      else if (value >= algo.defaultThresholds.light) level = 'Light';
+      const risk = evaluateIcingRisk(algo.id, value, algo.defaultThresholds);
 
       algorithms[algo.id] = {
         algorithmId: algo.id,
         algorithmName: algo.name,
+        paramName: algo.paramName,
+        paramSymbol: algo.paramSymbol,
         value,
-        level
+        level: risk.level,
+        levelLabel: risk.label
       };
     });
 
@@ -299,6 +384,9 @@ export function generateFlightData(
       longitude: Math.round(lng * 10000) / 10000,
       altitude: Math.round(altitude),
       speed: Math.round(speed),
+      groundSpeed,
+      temperature,
+      humidity,
       heading,
       algorithms,
       maxDistance

@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { FlightDataPoint, IcingAlgorithmDef, ProductConfig } from '../types';
 import { LineChart, BarChart2, Check, Download, MapPin, Eye, Sliders, Layers, RefreshCw, ChevronDown } from 'lucide-react';
+import { useTheme } from '../ThemeContext';
 
 interface ProductCardProps {
   key?: React.Key | string;
@@ -32,6 +33,8 @@ export default function ProductCard({
   onMapToTrajectory,
   systemMode
 }: ProductCardProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const [chartMode, setChartMode] = useState<'line' | 'scatter'>('scatter');
   const [showConfig, setShowConfig] = useState<boolean>(false);
   const [maxDistanceLimit, setMaxDistanceLimit] = useState<number>(100);
@@ -39,10 +42,12 @@ export default function ProductCard({
 
   // Configuration forms
   const [thLight, setThLight] = useState<number>(config.thresholds.light);
+  const [thLightModerate, setThLightModerate] = useState<number>(config.thresholds.lightModerate ?? 3);
   const [thModerate, setThModerate] = useState<number>(config.thresholds.moderate);
   const [thSevere, setThSevere] = useState<number>(config.thresholds.severe);
   const [colorNone, setColorNone] = useState<string>(config.colors.none);
   const [colorLight, setColorLight] = useState<string>(config.colors.light);
+  const [colorLightModerate, setColorLightModerate] = useState<string>(config.colors.lightModerate || '#22D3EE');
   const [colorModerate, setColorModerate] = useState<string>(config.colors.moderate);
   const [colorSevere, setColorSevere] = useState<string>(config.colors.severe);
 
@@ -51,21 +56,60 @@ export default function ProductCard({
   // Sync state with updated config prop (e.g. parent reset)
   React.useEffect(() => {
     setThLight(config.thresholds.light);
+    if (config.thresholds.lightModerate !== undefined) {
+      setThLightModerate(config.thresholds.lightModerate);
+    }
     setThModerate(config.thresholds.moderate);
     setThSevere(config.thresholds.severe);
     setColorNone(config.colors.none);
     setColorLight(config.colors.light);
+    if (config.colors.lightModerate) {
+      setColorLightModerate(config.colors.lightModerate);
+    }
     setColorModerate(config.colors.moderate);
     setColorSevere(config.colors.severe);
   }, [
     config.thresholds.light,
+    config.thresholds.lightModerate,
     config.thresholds.moderate,
     config.thresholds.severe,
     config.colors.none,
     config.colors.light,
+    config.colors.lightModerate,
     config.colors.moderate,
     config.colors.severe
   ]);
+
+  // Unified evaluation logic matching user requirements
+  const getPointColorAndLabel = (val: number) => {
+    if (algorithm.id === 'temp_frost') {
+      const thresh = thLight;
+      if (val > 0) {
+        if (thSevere > 0 && val >= thSevere) {
+          return { color: colorSevere, label: algorithm.levelLabels?.severe || '重度积冰' };
+        }
+        return { color: colorModerate, label: algorithm.levelLabels?.moderate || '中度及以上' };
+      }
+      if (val > thresh) {
+        return { color: colorLight, label: algorithm.levelLabels?.light || '轻度积冰' };
+      }
+      return { color: colorNone, label: algorithm.levelLabels?.none || '无积冰' };
+    }
+
+    if (algorithm.id === 'icing_index') {
+      if (val >= thSevere) return { color: colorSevere, label: algorithm.levelLabels?.severe || '重度积冰' };
+      if (val >= thModerate) return { color: colorModerate, label: algorithm.levelLabels?.moderate || '中度积冰' };
+      if (val >= thLightModerate) return { color: colorLightModerate, label: algorithm.levelLabels?.lightModerate || '轻-中度积冰' };
+      if (val >= thLight) return { color: colorLight, label: algorithm.levelLabels?.light || '轻度积冰' };
+      return { color: colorNone, label: algorithm.levelLabels?.none || '无积冰' };
+    }
+
+    // Default algorithms (ic_index, ic_improved, xgb, lgb, catb, rf, probe)
+    if (val >= thSevere) return { color: colorSevere, label: algorithm.levelLabels?.severe || '重度积冰' };
+    if (val >= thModerate) return { color: colorModerate, label: algorithm.levelLabels?.moderate || '中度积冰' };
+    if (val >= thLight) return { color: colorLight, label: algorithm.levelLabels?.light || '轻度积冰' };
+    return { color: colorNone, label: algorithm.levelLabels?.none || '无积冰' };
+  };
 
   // Apply configs
   const handleSaveConfig = () => {
@@ -73,12 +117,14 @@ export default function ProductCard({
       algorithmId: algorithm.id,
       thresholds: {
         light: Number(thLight),
+        ...(algorithm.defaultThresholds.lightModerate !== undefined ? { lightModerate: Number(thLightModerate) } : {}),
         moderate: Number(thModerate),
         severe: Number(thSevere)
       },
       colors: {
         none: colorNone,
         light: colorLight,
+        ...(algorithm.defaultThresholds.lightModerate !== undefined ? { lightModerate: colorLightModerate } : {}),
         moderate: colorModerate,
         severe: colorSevere
       }
@@ -88,18 +134,23 @@ export default function ProductCard({
 
   const handleResetConfig = () => {
     setThLight(algorithm.defaultThresholds.light);
+    if (algorithm.defaultThresholds.lightModerate !== undefined) {
+      setThLightModerate(algorithm.defaultThresholds.lightModerate);
+    }
     setThModerate(algorithm.defaultThresholds.moderate);
     setThSevere(algorithm.defaultThresholds.severe);
-    setColorNone('#6B7280'); // default light-gray
-    setColorLight('#0A84FF'); // blue
-    setColorModerate('#FF9F0A'); // orange
-    setColorSevere('#FF3B30'); // red
+    setColorNone('#6B7280');
+    setColorLight('#0A84FF');
+    setColorLightModerate('#22D3EE');
+    setColorModerate('#FF9F0A');
+    setColorSevere('#FF3B30');
     onChangeConfig({
       algorithmId: algorithm.id,
       thresholds: algorithm.defaultThresholds,
       colors: {
         none: '#6B7280',
         light: '#0A84FF',
+        lightModerate: '#22D3EE',
         moderate: '#FF9F0A',
         severe: '#FF3B30'
       }
@@ -378,25 +429,29 @@ export default function ProductCard({
   return (
     <div
       ref={containerRef}
-      className={`bg-[#121214] border ${isMappedOnMap ? 'border-white shadow-lg' : 'border-[#2A2A2C]'} rounded-sm p-3.5 space-y-3 relative flex flex-col transition-all`}
+      className={`border rounded-sm p-3.5 space-y-3 relative flex flex-col transition-all duration-200 ${
+        isLight
+          ? (isMappedOnMap ? 'bg-white border-blue-600 shadow-md ring-2 ring-blue-500/20' : 'bg-white border-slate-200 shadow-xs')
+          : (isMappedOnMap ? 'bg-[#121214] border-white shadow-lg' : 'bg-[#121214] border-[#2A2A2C]')
+      }`}
       id={`product-card-${algorithm.id}`}
     >
       {/* Header info */}
-      <div className="flex items-center justify-between border-b border-[#2A2A2C] pb-2">
+      <div className={`flex items-center justify-between pb-2 border-b ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
         <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isMappedOnMap ? 'bg-[#34C759]' : 'bg-white/25 animate-pulse'}`}></div>
-          <div>
-            <h3 className="text-[16px] font-sans font-bold text-[#E0E0E0] flex items-center gap-1.5 uppercase">
-              {algorithm.name}
-            </h3>
-          </div>
+          <div className={`w-2 h-2 rounded-full ${isMappedOnMap ? 'bg-[#34C759]' : (isLight ? 'bg-slate-400 animate-pulse' : 'bg-white/25 animate-pulse')}`}></div>
+          <h3 className={`text-[16px] font-sans font-bold flex items-center gap-1.5 uppercase ${isLight ? 'text-slate-800' : 'text-[#E0E0E0]'}`}>
+            {algorithm.name}
+          </h3>
         </div>
 
         {/* Header actions */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setChartMode(prev => prev === 'line' ? 'scatter' : 'line')}
-            className="p-1 text-white/50 hover:text-white hover:bg-white/10 border border-[#2A2A2C] rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer"
+            className={`p-1 border rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer ${
+              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-300' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
+            }`}
             title="切换 折线图/散点图"
           >
             {chartMode === 'line' ? <LineChart size={12} /> : <BarChart2 size={12} />}
@@ -405,7 +460,9 @@ export default function ProductCard({
           
           <button
             onClick={() => setShowConfig(true)}
-            className="p-1 text-white/50 hover:text-white hover:bg-white/10 border border-[#2A2A2C] rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer"
+            className={`p-1 border rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer ${
+              isLight ? 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 border-slate-300' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
+            }`}
             title="配置显示阈值与颜色"
           >
             <Sliders size={12} />
@@ -416,8 +473,8 @@ export default function ProductCard({
             onClick={onMapToTrajectory}
             className={`p-1 border text-[12px] flex items-center gap-1 rounded-sm transition-colors cursor-pointer ${
               isMappedOnMap 
-              ? 'bg-white border-white text-black font-bold shadow-sm' 
-              : 'text-white/50 border-[#2A2A2C] hover:text-white hover:bg-white/10'
+              ? (isLight ? 'bg-blue-600 border-blue-600 text-white font-bold shadow-xs' : 'bg-white border-white text-black font-bold shadow-sm')
+              : (isLight ? 'text-slate-600 border-slate-300 hover:text-slate-900 hover:bg-slate-100' : 'text-white/50 border-[#2A2A2C] hover:text-white hover:bg-white/10')
             }`}
             title="将该算法渲染到主飞行地图轨迹"
           >
@@ -429,16 +486,18 @@ export default function ProductCard({
 
       {/* Threshold and Config modal popup dialog */}
       {showConfig && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 font-mono animate-fadeIn" onClick={() => setShowConfig(false)}>
-          <div className="bg-[#121214] border border-[#2A2A2C] rounded-md p-5 w-full max-w-md space-y-4 shadow-2xl relative" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-[#2A2A2C] pb-3">
-              <span className="text-white font-bold text-xs flex items-center gap-2">
-                <Sliders size={14} className="text-white/60" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 font-mono animate-fadeIn" onClick={() => setShowConfig(false)}>
+          <div className={`border rounded-md p-5 w-full max-w-md space-y-4 shadow-2xl relative ${
+            isLight ? 'bg-white border-slate-200 text-slate-800' : 'bg-[#121214] border-[#2A2A2C] text-white'
+          }`} onClick={e => e.stopPropagation()}>
+            <div className={`flex items-center justify-between pb-3 border-b ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
+              <span className={`font-bold text-xs flex items-center gap-2 ${isLight ? 'text-slate-800' : 'text-white'}`}>
+                <Sliders size={14} className={isLight ? 'text-slate-500' : 'text-white/60'} />
                 <span>⚙️ {algorithm.name} 阈值与颜色配置</span>
               </span>
               <button 
                 onClick={() => setShowConfig(false)}
-                className="text-white/40 hover:text-white transition-colors cursor-pointer text-base"
+                className={`transition-colors cursor-pointer text-base ${isLight ? 'text-slate-400 hover:text-slate-700' : 'text-white/40 hover:text-white'}`}
               >
                 ✕
               </button>
@@ -446,19 +505,38 @@ export default function ProductCard({
             
             <div className="grid grid-cols-2 gap-4">
               {/* Threshold bounds */}
-              <div className="space-y-3.5 border-r border-[#2A2A2C] pr-4">
-                <div className="text-[12px] text-white/40 uppercase font-bold tracking-wider">分级阈值 {algorithm.unit ? `(${algorithm.unit})` : ''}</div>
+              <div className={`space-y-3.5 pr-4 border-r ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
+                <div className={`text-[12px] uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                  分级阈值 {algorithm.unit ? `(${algorithm.unit})` : ''}
+                </div>
                 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9F0A] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度'} ≥</span>
+                  <span className="text-[#0A84FF] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度'} ≥</span>
                   <input
                     type="number"
                     step={algorithm.maxVal <= 10 ? "0.1" : "1"}
                     value={thLight}
                     onChange={(e) => setThLight(parseFloat(e.target.value) || 0)}
-                    className="w-16 bg-[#0A0A0B] border border-[#2A2A2C] text-white rounded-sm px-1.5 py-0.5 text-center text-xs"
+                    className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
+                      isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
+                    }`}
                   />
                 </div>
+
+                {algorithm.defaultThresholds.lightModerate !== undefined && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#22D3EE] text-xs font-semibold">{algorithm.levelLabels?.lightModerate || '轻-中度'} ≥</span>
+                    <input
+                      type="number"
+                      step={algorithm.maxVal <= 10 ? "0.1" : "1"}
+                      value={thLightModerate}
+                      onChange={(e) => setThLightModerate(parseFloat(e.target.value) || 0)}
+                      className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
+                        isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
+                      }`}
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[#FF9500] text-xs font-semibold">{algorithm.levelLabels?.moderate || '中度'} ≥</span>
@@ -467,7 +545,9 @@ export default function ProductCard({
                     step={algorithm.maxVal <= 10 ? "0.1" : "1"}
                     value={thModerate}
                     onChange={(e) => setThModerate(parseFloat(e.target.value) || 0)}
-                    className="w-16 bg-[#0A0A0B] border border-[#2A2A2C] text-white rounded-sm px-1.5 py-0.5 text-center text-xs"
+                    className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
+                      isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
+                    }`}
                   />
                 </div>
 
@@ -478,17 +558,21 @@ export default function ProductCard({
                     step={algorithm.maxVal <= 10 ? "0.1" : "1"}
                     value={thSevere}
                     onChange={(e) => setThSevere(parseFloat(e.target.value) || 0)}
-                    className="w-16 bg-[#0A0A0B] border border-[#2A2A2C] text-white rounded-sm px-1.5 py-0.5 text-center text-xs"
+                    className={`w-16 border rounded-sm px-1.5 py-0.5 text-center text-xs ${
+                      isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
+                    }`}
                   />
                 </div>
               </div>
 
               {/* Colors */}
               <div className="space-y-3.5 pl-2">
-                <div className="text-[12px] text-white/40 uppercase font-bold tracking-wider">雷达/轨迹颜色</div>
+                <div className={`text-[12px] uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>
+                  雷达/轨迹颜色
+                </div>
                 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-white/40 text-xs">{algorithm.levelLabels?.none || '无风险'}</span>
+                  <span className={`text-xs ${isLight ? 'text-slate-500' : 'text-white/40'}`}>{algorithm.levelLabels?.none || '无风险'}</span>
                   <input
                     type="color"
                     value={colorNone}
@@ -498,7 +582,7 @@ export default function ProductCard({
                 </div>
 
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[#FF9F0A] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度积冰'}</span>
+                  <span className="text-[#0A84FF] text-xs font-semibold">{algorithm.levelLabels?.light || '轻度积冰'}</span>
                   <input
                     type="color"
                     value={colorLight}
@@ -506,6 +590,18 @@ export default function ProductCard({
                     className="w-8 h-5 bg-transparent border-0 cursor-pointer"
                   />
                 </div>
+
+                {algorithm.defaultThresholds.lightModerate !== undefined && (
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[#22D3EE] text-xs font-semibold">{algorithm.levelLabels?.lightModerate || '轻-中度'}</span>
+                    <input
+                      type="color"
+                      value={colorLightModerate}
+                      onChange={(e) => setColorLightModerate(e.target.value)}
+                      className="w-8 h-5 bg-transparent border-0 cursor-pointer"
+                    />
+                  </div>
+                )}
 
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[#FF9500] text-xs font-semibold">{algorithm.levelLabels?.moderate || '中度积冰'}</span>
@@ -529,28 +625,34 @@ export default function ProductCard({
               </div>
             </div>
 
-            <div className="border-t border-[#2A2A2C] pt-3 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-1.5 text-white/40 text-xs">
+            <div className={`pt-3 flex items-center justify-between gap-4 border-t ${isLight ? 'border-slate-200' : 'border-[#2A2A2C]'}`}>
+              <div className={`flex items-center gap-1.5 text-xs ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
                 <span>最大航程上限:</span>
                 <input
                   type="number"
                   value={maxDistanceLimit}
                   onChange={(e) => setMaxDistanceLimit(Math.max(10, parseInt(e.target.value) || 100))}
-                  className="w-12 bg-[#0A0A0B] border border-[#2A2A2C] text-white rounded-sm px-1 text-center"
+                  className={`w-12 border rounded-sm px-1 text-center ${
+                    isLight ? 'bg-slate-50 border-slate-300 text-slate-800' : 'bg-[#0A0A0B] border-[#2A2A2C] text-white'
+                  }`}
                 />
                 <span>km</span>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleResetConfig}
-                  className="px-2.5 py-1 bg-[#2A2A2C] text-white hover:bg-white/10 text-xs font-bold rounded-sm transition-colors cursor-pointer flex items-center gap-1"
+                  className={`px-2.5 py-1 text-xs font-bold rounded-sm transition-colors cursor-pointer flex items-center gap-1 ${
+                    isLight ? 'bg-slate-100 border border-slate-300 text-slate-700 hover:bg-slate-200' : 'bg-[#2A2A2C] text-white hover:bg-white/10'
+                  }`}
                 >
                   <RefreshCw size={11} />
                   <span>重置</span>
                 </button>
                 <button
                   onClick={handleSaveConfig}
-                  className="px-3 py-1 bg-white text-black text-xs font-bold rounded-sm hover:bg-white/90 transition-colors flex items-center gap-1 cursor-pointer"
+                  className={`px-3 py-1 text-xs font-bold rounded-sm transition-colors flex items-center gap-1 cursor-pointer ${
+                    isLight ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-white text-black hover:bg-white/90'
+                  }`}
                 >
                   <Check size={11} />
                   <span>保存并应用</span>
@@ -562,7 +664,9 @@ export default function ProductCard({
       )}
 
       {/* Embedded Chart Body */}
-      <div className="relative bg-[#0A0A0B] border border-[#2A2A2C] rounded-sm">
+      <div className={`relative border rounded-sm transition-colors duration-200 ${
+        isLight ? 'bg-slate-50/80 border-slate-200' : 'bg-[#0A0A0B] border-[#2A2A2C]'
+      }`}>
         <svg
           id={`svg-chart-${algorithm.id}`}
           width="100%"
@@ -587,7 +691,7 @@ export default function ProductCard({
                     y1={y}
                     x2={chartWidth - paddingRight}
                     y2={y}
-                    stroke="#1A1A1C"
+                    stroke={isLight ? "#CBD5E1" : "#1A1A1C"}
                     strokeWidth={0.5}
                     strokeDasharray="2 4"
                   />
@@ -595,7 +699,7 @@ export default function ProductCard({
                     x={paddingLeft - 5}
                     y={y + 4}
                     textAnchor="end"
-                    fill="rgba(255, 255, 255, 0.4)"
+                    fill={isLight ? "rgba(100, 116, 139, 0.8)" : "rgba(255, 255, 255, 0.4)"}
                     fontSize={12}
                     fontFamily="monospace"
                   >
@@ -613,7 +717,7 @@ export default function ProductCard({
               y1={paddingTop}
               x2={chartWidth - paddingRight}
               y2={chartHeight - paddingBottom}
-              stroke="rgba(255, 255, 255, 0.15)"
+              stroke={isLight ? "rgba(100, 116, 139, 0.3)" : "rgba(255, 255, 255, 0.15)"}
               strokeWidth={1}
               strokeDasharray="2 2"
             />
@@ -623,7 +727,7 @@ export default function ProductCard({
               y={paddingTop}
               width={paddingRight}
               height={innerHeight}
-              fill="rgba(255, 255, 255, 0.02)"
+              fill={isLight ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.02)"}
               pointerEvents="none"
             />
           </g>
@@ -639,10 +743,7 @@ export default function ProductCard({
                 const val = pt.algorithms[algorithm.id]?.value ?? 0;
                 
                 const segmentVal = Math.max(prevVal, val);
-                let color = colorNone;
-                if (segmentVal >= thSevere) color = colorSevere;
-                else if (segmentVal >= thModerate) color = colorModerate;
-                else if (segmentVal >= thLight) color = colorLight;
+                const { color } = getPointColorAndLabel(segmentVal);
 
                 return (
                   <line
@@ -662,10 +763,7 @@ export default function ProductCard({
             <g>
               {chartData.map((pt, idx) => {
                 const val = pt.algorithms[algorithm.id]?.value ?? 0;
-                let color = colorNone;
-                if (val >= thSevere) color = colorSevere;
-                else if (val >= thModerate) color = colorModerate;
-                else if (val >= thLight) color = colorLight;
+                const { color } = getPointColorAndLabel(val);
 
                 return (
                   <circle
@@ -701,6 +799,17 @@ export default function ProductCard({
               strokeWidth={1}
               strokeDasharray="1 3"
             />
+            {algorithm.defaultThresholds.lightModerate !== undefined && (
+              <line
+                x1={paddingLeft}
+                y1={getY(thLightModerate)}
+                x2={chartWidth - paddingRight}
+                y2={getY(thLightModerate)}
+                stroke={colorLightModerate}
+                strokeWidth={1}
+                strokeDasharray="1 3"
+              />
+            )}
             <line
               x1={paddingLeft}
               y1={getY(thLight)}
@@ -724,7 +833,7 @@ export default function ProductCard({
                     y1={paddingTop}
                     x2={xCoord}
                     y2={chartHeight - paddingBottom}
-                    stroke="#ffffff"
+                    stroke={isLight ? "#2563EB" : "#ffffff"}
                     strokeWidth={1}
                     strokeDasharray="2 2"
                   />
@@ -748,7 +857,7 @@ export default function ProductCard({
                   y1={paddingTop}
                   x2={xCoord}
                   y2={chartHeight - paddingBottom}
-                  stroke="#ffffff"
+                  stroke={isLight ? "#0284C7" : "#ffffff"}
                   strokeWidth={1.5}
                   opacity={0.4}
                 />
@@ -756,8 +865,8 @@ export default function ProductCard({
                   cx={xCoord}
                   cy={getY(val)}
                   r={5}
-                  fill="#ffffff"
-                  stroke="#000000"
+                  fill={isLight ? "#0284C7" : "#ffffff"}
+                  stroke={isLight ? "#ffffff" : "#000000"}
                   strokeWidth={1.5}
                 />
               </g>
@@ -773,14 +882,14 @@ export default function ProductCard({
                 y1={maxDistanceLineData.y}
                 x2={maxDistanceLineData.endX}
                 y2={maxDistanceLineData.y}
-                stroke="#ffffff"
+                stroke={isLight ? "#475569" : "#ffffff"}
                 strokeWidth={1.5}
               />
               
               {/* Arrow head pointing right, ending at endX */}
               <polygon
                 points={`${maxDistanceLineData.endX - 6},${maxDistanceLineData.y - 4} ${maxDistanceLineData.endX},${maxDistanceLineData.y} ${maxDistanceLineData.endX - 6},${maxDistanceLineData.y + 4}`}
-                fill="#ffffff"
+                fill={isLight ? "#475569" : "#ffffff"}
               />
 
               {/* Vertical line/cap at the end point */}
@@ -789,7 +898,7 @@ export default function ProductCard({
                 y1={maxDistanceLineData.y - 6}
                 x2={maxDistanceLineData.endX}
                 y2={maxDistanceLineData.y + 6}
-                stroke="#ffffff"
+                stroke={isLight ? "#475569" : "#ffffff"}
                 strokeWidth={1.5}
               />
 
@@ -805,16 +914,16 @@ export default function ProductCard({
                       y={maxDistanceLineData.y - 18}
                       width={tagWidth}
                       height={tagHeight}
-                      fill="#000000"
-                      stroke="#2A2A2C"
+                      fill={isLight ? "#ffffff" : "#000000"}
+                      stroke={isLight ? "#CBD5E1" : "#2A2A2C"}
                       strokeWidth={0.5}
                       rx={1.5}
-                      opacity={0.85}
+                      opacity={0.9}
                     />
                     <text
                       x={midX}
                       y={maxDistanceLineData.y - 6}
-                      fill="#ffffff"
+                      fill={isLight ? "#1E293B" : "#ffffff"}
                       fontSize={10}
                       fontFamily="monospace"
                       fontWeight="bold"
@@ -840,7 +949,7 @@ export default function ProductCard({
                     x={getX(idx)}
                     y={chartHeight - 4}
                     textAnchor="middle"
-                    fill="rgba(255, 255, 255, 0.3)"
+                    fill={isLight ? "rgba(100, 116, 139, 0.8)" : "rgba(255, 255, 255, 0.3)"}
                     fontSize={12}
                     fontFamily="monospace"
                   >
@@ -860,25 +969,22 @@ export default function ProductCard({
           const output = hoveredPt.algorithms[algorithm.id];
           if (!output) return null;
 
-          let color = colorNone;
-          let label = algorithm.levelLabels?.none || '无风险';
-          if (output.value >= thSevere) { color = colorSevere; label = algorithm.levelLabels?.severe || '重度积冰'; }
-          else if (output.value >= thModerate) { color = colorModerate; label = algorithm.levelLabels?.moderate || '中度积冰'; }
-          else if (output.value >= thLight) { color = colorLight; label = algorithm.levelLabels?.light || '轻度积冰'; }
-
+          const { color, label } = getPointColorAndLabel(output.value);
           const isLeftHalf = chartData.findIndex(p => p.id === hoveredIndex) < chartData.length / 2;
 
           return (
             <div
-              className="absolute top-2 bg-[#1A1A1C]/95 border border-[#2A2A2C] rounded-sm px-2 py-1 text-[12px] font-mono text-[#E0E0E0] pointer-events-none z-10 shadow-lg"
+              className={`absolute top-2 rounded-sm px-2 py-1 text-[12px] font-mono pointer-events-none z-10 border ${
+                isLight ? 'bg-white/95 border-slate-300 text-slate-800 shadow-md' : 'bg-[#1A1A1C]/95 border-[#2A2A2C] text-[#E0E0E0] shadow-lg'
+              }`}
               style={{
                 left: isLeftHalf ? 'auto' : '45px',
                 right: isLeftHalf ? '20px' : 'auto'
               }}
             >
-              <div className="text-white/40 font-bold mb-0.5">时刻: {hoveredPt.time}</div>
+              <div className={`font-bold mb-0.5 ${isLight ? 'text-slate-500' : 'text-white/40'}`}>时刻: {hoveredPt.time}</div>
               <div className="flex gap-2">
-                <span>数值: <strong className="text-white">{output.value} {algorithm.unit}</strong></span>
+                <span>数值: <strong className={isLight ? 'text-slate-900' : 'text-white'}>{output.value} {algorithm.unit}</strong></span>
                 <span>级别: <strong style={{ color }}>{label}</strong></span>
               </div>
             </div>
@@ -889,26 +995,36 @@ export default function ProductCard({
       {/* Footer controls: Legend and Export */}
       <div className="flex items-end justify-between text-[12px] font-mono pt-1">
         {/* Dynamic Legend */}
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-white/40">
+        <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${isLight ? 'text-slate-600' : 'text-white/40'}`}>
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorNone }}></span>
-            <span>{(algorithm.levelLabels?.none || '无风险').replace('积冰', '')}</span>
+            <span>{(algorithm.levelLabels?.none || '无积冰').replace('积冰', '') || '无'}</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLight }}></span>
             <span>{(algorithm.levelLabels?.light || '轻度').replace('积冰', '')}</span>
           </div>
+          {algorithm.defaultThresholds.lightModerate !== undefined && (
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLightModerate }}></span>
+              <span>{(algorithm.levelLabels?.lightModerate || '轻-中度').replace('积冰', '')}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorModerate }}></span>
             <span>{(algorithm.levelLabels?.moderate || '中度').replace('积冰', '')}</span>
           </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorSevere }}></span>
-            <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '')}</span>
-          </div>
+          {algorithm.id !== 'temp_frost' && (
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorSevere }}></span>
+              <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '')}</span>
+            </div>
+          )}
           {maxDistanceLineData && (
-            <div className="flex items-center gap-1.5 text-white/60 font-bold border-l border-[#2A2A2C] pl-2">
-              <svg className="w-3.5 h-2.5 inline-block text-white" fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
+            <div className={`flex items-center gap-1.5 font-bold border-l pl-2 ${
+              isLight ? 'text-slate-700 border-slate-300' : 'text-white/60 border-[#2A2A2C]'
+            }`}>
+              <svg className={`w-3.5 h-2.5 inline-block ${isLight ? 'text-slate-700' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
                 <path d="M1 1 v8 M1 5 h10 M7 2 l4 3 l-4 3" />
               </svg>
               <span>最大航行距离 {maxDistanceLineData.capped ? `(≥${maxDistanceLimit}km)` : ''}</span>
@@ -920,7 +1036,11 @@ export default function ProductCard({
         <div className="relative shrink-0">
           <button
             onClick={() => setShowExportMenu(prev => !prev)}
-            className="px-2 py-0.5 bg-[#1A1A1C] border border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10 rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px]"
+            className={`px-2 py-0.5 border rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px] ${
+              isLight
+                ? 'bg-slate-100 border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-200'
+                : 'bg-[#1A1A1C] border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10'
+            }`}
             title="导出数据或图表"
           >
             <Download size={11} />
@@ -935,13 +1055,17 @@ export default function ProductCard({
                 className="fixed inset-0 z-10" 
                 onClick={() => setShowExportMenu(false)}
               />
-              <div className="absolute right-0 bottom-full mb-1.5 w-32 bg-[#1A1A1C] border border-[#2C2C30] rounded-sm shadow-xl z-20 overflow-hidden py-1">
+              <div className={`absolute right-0 bottom-full mb-1.5 w-32 rounded-sm shadow-xl z-20 overflow-hidden py-1 border ${
+                isLight ? 'bg-white border-slate-200 text-slate-700' : 'bg-[#1A1A1C] border-[#2C2C30] text-white/70'
+              }`}>
                 <button
                   onClick={() => {
                     exportToCSV();
                     setShowExportMenu(false);
                   }}
-                  className="w-full text-left px-2.5 py-1.5 hover:bg-white/5 hover:text-white text-white/70 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px]"
+                  className={`w-full text-left px-2.5 py-1.5 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px] ${
+                    isLight ? 'hover:bg-slate-100 hover:text-slate-900 text-slate-700' : 'hover:bg-white/5 hover:text-white text-white/70'
+                  }`}
                 >
                   <Download size={10} />
                   <span>导出 CSV 数据</span>
@@ -951,7 +1075,9 @@ export default function ProductCard({
                     exportToSVGImage();
                     setShowExportMenu(false);
                   }}
-                  className="w-full text-left px-2.5 py-1.5 hover:bg-white/5 hover:text-white text-white/70 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px]"
+                  className={`w-full text-left px-2.5 py-1.5 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px] ${
+                    isLight ? 'hover:bg-slate-100 hover:text-slate-900 text-slate-700' : 'hover:bg-white/5 hover:text-white text-white/70'
+                  }`}
                 >
                   <Eye size={10} />
                   <span>导出分析图表</span>

@@ -1,6 +1,7 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { FlightDataPoint } from '../types';
-import { Plane, Compass, TrendingUp, Gauge, MapPin, Activity, HelpCircle } from 'lucide-react';
+import { TrendingUp, Gauge, MapPin, Compass } from 'lucide-react';
+import { useTheme } from '../ThemeContext';
 
 interface FlightTelemetryPanelProps {
   currentPoint: FlightDataPoint;
@@ -21,11 +22,63 @@ export default function FlightTelemetryPanel({
   startIndex,
   endIndex
 }: FlightTelemetryPanelProps) {
+  const { theme } = useTheme();
+  const isLight = theme === 'light';
   const chartRef = useRef<SVGSVGElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scaling Y-Axis domain based on the visible data range
+  // Responsive container dimension measurement
+  const [chartDimensions, setChartDimensions] = useState({ width: 850, height: 240 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const updateSize = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        if (rect.width > 100 && rect.height > 60) {
+          setChartDimensions({
+            width: Math.round(rect.width),
+            height: Math.round(rect.height)
+          });
+        }
+      }
+    };
+    updateSize();
+    const ro = new ResizeObserver(updateSize);
+    ro.observe(containerRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  const width = chartDimensions.width;
+  const height = chartDimensions.height;
+
+  // Paddings: 84px on sides provides clear separation between outer and inner axes
+  const paddingLeft = 84;
+  const paddingRight = 84;
+  const paddingTop = 22;
+  const paddingBottom = 26;
+
+  const innerWidth = Math.max(10, width - paddingLeft - paddingRight);
+  const innerHeight = Math.max(10, height - paddingTop - paddingBottom);
+
+  // Toggle state for the 4 curves
+  const [visibleCurves, setVisibleCurves] = useState({
+    altitude: true,
+    groundSpeed: true,
+    temperature: true,
+    humidity: true
+  });
+
+  // Mouse hover state for inspection guideline and tooltip
+  const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+
+  const toggleCurve = (key: keyof typeof visibleCurves) => {
+    setVisibleCurves(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  // 1. Altitude domain (高度, m)
   const altDomain = useMemo(() => {
-    if (visibleData.length === 0) return { min: 2000, max: 8000 };
+    if (visibleData.length === 0) return { min: 1000, max: 8500 };
     const values = visibleData.map(pt => pt.altitude);
     const minVal = Math.min(...values);
     const maxVal = Math.max(...values);
@@ -36,28 +89,34 @@ export default function FlightTelemetryPanel({
     };
   }, [visibleData]);
 
-  const speedDomain = useMemo(() => {
-    if (visibleData.length === 0) return { min: 600, max: 950 };
-    const values = visibleData.map(pt => pt.speed);
+  // 2. Ground Speed domain (航速 / 地速, km/h)
+  const groundSpeedDomain = useMemo(() => {
+    if (visibleData.length === 0) return { min: 300, max: 600 };
+    const values = visibleData.map(pt => pt.groundSpeed ?? (pt.speed + 40));
     const minVal = Math.min(...values);
     const maxVal = Math.max(...values);
-    const padding = (maxVal - minVal) * 0.1 || 50;
+    const padding = (maxVal - minVal) * 0.1 || 30;
     return {
       min: Math.max(0, Math.round((minVal - padding) / 10) * 10),
       max: Math.round((maxVal + padding) / 10) * 10
     };
   }, [visibleData]);
 
-  // Chart Dimensions
-  const width = 850;
-  const height = 180;
-  const paddingLeft = 45;
-  const paddingRight = 15;
-  const paddingTop = 15;
-  const paddingBottom = 25;
+  // 3. Temperature domain (温度, °C)
+  const tempDomain = useMemo(() => {
+    if (visibleData.length === 0) return { min: -40, max: 10 };
+    const values = visibleData.map(pt => pt.temperature ?? -15);
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const padding = Math.max(2, (maxVal - minVal) * 0.1);
+    return {
+      min: Math.floor(minVal - padding),
+      max: Math.ceil(maxVal + padding)
+    };
+  }, [visibleData]);
 
-  const innerWidth = width - paddingLeft - paddingRight;
-  const innerHeight = height - paddingTop - paddingBottom;
+  // 4. Humidity domain (相对湿度, %) - 0% to 100%
+  const humDomain = { min: 0, max: 100 };
 
   // Coordinate projections
   const getX = (idx: number) => {
@@ -73,28 +132,49 @@ export default function FlightTelemetryPanel({
   };
 
   const getSpeedY = (val: number) => {
-    const range = speedDomain.max - speedDomain.min || 1;
-    const fraction = (val - speedDomain.min) / range;
+    const range = groundSpeedDomain.max - groundSpeedDomain.min || 1;
+    const fraction = (val - groundSpeedDomain.min) / range;
     return height - paddingBottom - fraction * innerHeight;
   };
 
-  // Click / Scrub handler
-  const handleChartInteraction = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
-    if (!chartRef.current) return;
+  const getTempY = (val: number) => {
+    const range = tempDomain.max - tempDomain.min || 1;
+    const fraction = (val - tempDomain.min) / range;
+    return height - paddingBottom - fraction * innerHeight;
+  };
+
+  const getHumY = (val: number) => {
+    const range = humDomain.max - humDomain.min || 1;
+    const fraction = (val - humDomain.min) / range;
+    return height - paddingBottom - fraction * innerHeight;
+  };
+
+  // Mouse move handler for hover inspection
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement, MouseEvent>) => {
+    if (!chartRef.current || visibleData.length === 0) return;
     const rect = chartRef.current.getBoundingClientRect();
     const clientX = e.clientX - rect.left;
-    
-    // Scale clientX to SVG width coordinates
     const svgX = (clientX / rect.width) * width;
     const plotX = svgX - paddingLeft;
-    const fraction = plotX / innerWidth;
     
+    if (plotX < 0 || plotX > innerWidth) {
+      setHoverIndex(null);
+      return;
+    }
+    
+    const fraction = Math.max(0, Math.min(1, plotX / innerWidth));
     const approxIdx = Math.round(fraction * (visibleData.length - 1));
-    const finalIdx = Math.max(0, Math.min(visibleData.length - 1, approxIdx));
-    
-    const actualPoint = visibleData[finalIdx];
-    if (actualPoint) {
-      // Find the absolute index in main flightData array
+    setHoverIndex(approxIdx);
+  };
+
+  const handleMouseLeave = () => {
+    setHoverIndex(null);
+  };
+
+  // Click handler to select point / seek
+  const handleChartClick = () => {
+    if (hoverIndex !== null && visibleData[hoverIndex]) {
+      const actualPoint = visibleData[hoverIndex];
       const absoluteIdx = flightData.findIndex(pt => pt.id === actualPoint.id);
       if (absoluteIdx !== -1) {
         onSelectIndex(absoluteIdx);
@@ -102,36 +182,44 @@ export default function FlightTelemetryPanel({
     }
   };
 
-  // Generate SVG path for Altitude Area
-  const altAreaPath = useMemo(() => {
-    if (visibleData.length === 0) return '';
-    let d = `M ${getX(0)} ${height - paddingBottom}`;
-    
-    visibleData.forEach((pt, idx) => {
-      d += ` L ${getX(idx)} ${getAltY(pt.altitude)}`;
-    });
-    
-    d += ` L ${getX(visibleData.length - 1)} ${height - paddingBottom} Z`;
-    return d;
-  }, [visibleData, altDomain]);
-
-  // Generate SVG path for Altitude Line
+  // SVG path for Altitude Line
   const altLinePath = useMemo(() => {
-    if (visibleData.length === 0) return '';
+    if (visibleData.length === 0 || !visibleCurves.altitude) return '';
     return visibleData.map((pt, idx) => {
       const command = idx === 0 ? 'M' : 'L';
       return `${command} ${getX(idx)} ${getAltY(pt.altitude)}`;
     }).join(' ');
-  }, [visibleData, altDomain]);
+  }, [visibleData, altDomain, visibleCurves.altitude, width, height]);
 
-  // Generate SVG path for Speed Line
+  // SVG path for Ground Speed Line (航速)
   const speedLinePath = useMemo(() => {
-    if (visibleData.length === 0) return '';
+    if (visibleData.length === 0 || !visibleCurves.groundSpeed) return '';
     return visibleData.map((pt, idx) => {
       const command = idx === 0 ? 'M' : 'L';
-      return `${command} ${getX(idx)} ${getSpeedY(pt.speed)}`;
+      const spd = pt.groundSpeed ?? (pt.speed + 40);
+      return `${command} ${getX(idx)} ${getSpeedY(spd)}`;
     }).join(' ');
-  }, [visibleData, speedDomain]);
+  }, [visibleData, groundSpeedDomain, visibleCurves.groundSpeed, width, height]);
+
+  // SVG path for Temperature Line (温度)
+  const tempLinePath = useMemo(() => {
+    if (visibleData.length === 0 || !visibleCurves.temperature) return '';
+    return visibleData.map((pt, idx) => {
+      const command = idx === 0 ? 'M' : 'L';
+      const tmp = pt.temperature ?? -15;
+      return `${command} ${getX(idx)} ${getTempY(tmp)}`;
+    }).join(' ');
+  }, [visibleData, tempDomain, visibleCurves.temperature, width, height]);
+
+  // SVG path for Humidity Line (湿度)
+  const humLinePath = useMemo(() => {
+    if (visibleData.length === 0 || !visibleCurves.humidity) return '';
+    return visibleData.map((pt, idx) => {
+      const command = idx === 0 ? 'M' : 'L';
+      const hum = pt.humidity ?? 50;
+      return `${command} ${getX(idx)} ${getHumY(hum)}`;
+    }).join(' ');
+  }, [visibleData, humDomain, visibleCurves.humidity, width, height]);
 
   // Find relative index of currentPoint inside visibleData
   const relativeCurrentIndex = useMemo(() => {
@@ -139,314 +227,489 @@ export default function FlightTelemetryPanel({
   }, [visibleData, currentPoint]);
 
   return (
-    <div className="flex flex-col h-full justify-between space-y-4 overflow-hidden">
+    <div className="flex flex-col h-full space-y-4 overflow-hidden">
       
       {/* 1. Real-time Telemetry Grid */}
       <div className="grid grid-cols-4 gap-4 shrink-0">
         
         {/* Card 1: Altitude */}
-        <div className="bg-[#1A1A1C] border border-[#2A2A2C] rounded-sm p-4 relative overflow-hidden group">
-          <div className="absolute top-2 right-2 text-white/15">
+        <div className={`border rounded-sm p-4 relative overflow-hidden group transition-colors duration-200 ${
+          isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+        }`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-slate-200' : 'text-white/15'}`}>
             <TrendingUp size={24} />
           </div>
-          <span className="text-[12px] text-white/40 font-mono uppercase font-bold tracking-wider">当前飞行高度 (ALT)</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>当前飞行高度 (ALT)</span>
           <div className="flex items-baseline gap-1.5 mt-2">
-            <span className="text-[28px] font-mono font-black text-[#00E5FF] tracking-tight leading-none">{currentPoint?.altitude || '---'}</span>
-            <span className="text-[12px] font-mono text-white/40">米 (m)</span>
-          </div>
-          <div className="mt-2 text-[12px] font-mono text-white/50 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
-            <span>气压测量高度数据正常</span>
+            <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-cyan-600' : 'text-[#00E5FF]'}`}>
+              {currentPoint?.altitude || '---'}
+            </span>
+            <span className={`text-[12px] font-mono ${isLight ? 'text-slate-400' : 'text-white/40'}`}>米 (m)</span>
           </div>
         </div>
 
-        {/* Card 2: Speed */}
-        <div className="bg-[#1A1A1C] border border-[#2A2A2C] rounded-sm p-4 relative overflow-hidden">
-          <div className="absolute top-2 right-2 text-white/15">
+        {/* Card 2: Ground Speed (航速) & True Airspeed (真空速) */}
+        <div className={`border rounded-sm p-4 relative overflow-hidden transition-colors duration-200 ${
+          isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+        }`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-slate-200' : 'text-white/15'}`}>
             <Gauge size={24} />
           </div>
-          <span className="text-[12px] text-white/40 font-mono uppercase font-bold tracking-wider">当前真空速 (TAS)</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>当前航速 (GS) / 真空速</span>
           <div className="flex items-baseline gap-1.5 mt-2">
-            <span className="text-[28px] font-mono font-black text-[#34C759] tracking-tight leading-none">{currentPoint?.speed || '---'}</span>
-            <span className="text-[12px] font-mono text-white/40">公里/小时 (km/h)</span>
+            <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-emerald-600' : 'text-[#34C759]'}`}>
+              {currentPoint?.groundSpeed || currentPoint?.speed || '---'}
+            </span>
+            <span className={`text-[12px] font-mono ${isLight ? 'text-slate-400' : 'text-white/40'}`}>km/h</span>
           </div>
-          <div className="mt-2 text-[12px] font-mono text-white/50 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-            <span>马赫数: {( (currentPoint?.speed || 0) / 1060 ).toFixed(2)} Mach</span>
+          <div className={`mt-2 text-[12px] font-mono flex items-center ${isLight ? 'text-slate-500' : 'text-white/50'}`}>
+            <span>真空速(TAS): {currentPoint?.speed || '---'} km/h</span>
           </div>
         </div>
 
         {/* Card 3: GPS Coordinates */}
-        <div className="bg-[#1A1A1C] border border-[#2A2A2C] rounded-sm p-4 relative overflow-hidden col-span-1">
-          <div className="absolute top-2 right-2 text-white/15">
+        <div className={`border rounded-sm p-4 relative overflow-hidden col-span-1 transition-colors duration-200 ${
+          isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+        }`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-slate-200' : 'text-white/15'}`}>
             <MapPin size={24} />
           </div>
-          <span className="text-[12px] text-white/40 font-mono uppercase font-bold tracking-wider">GIS 定位坐标 (GNSS)</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>GIS 定位坐标 (GNSS)</span>
           <div className="mt-2 space-y-1">
             <div className="flex justify-between items-center text-[14px] font-mono">
-              <span className="text-white/40">纬度 LAT:</span>
-              <span className="text-white font-bold">{currentPoint?.latitude || '---'} °N</span>
+              <span className={isLight ? 'text-slate-400' : 'text-white/40'}>纬度 LAT:</span>
+              <span className={`font-bold ${isLight ? 'text-slate-800' : 'text-white'}`}>{currentPoint?.latitude || '---'} °N</span>
             </div>
             <div className="flex justify-between items-center text-[14px] font-mono">
-              <span className="text-white/40">经度 LON:</span>
-              <span className="text-white font-bold">{currentPoint?.longitude || '---'} °E</span>
+              <span className={isLight ? 'text-slate-400' : 'text-white/40'}>经度 LON:</span>
+              <span className={`font-bold ${isLight ? 'text-slate-800' : 'text-white'}`}>{currentPoint?.longitude || '---'} °E</span>
             </div>
-          </div>
-          <div className="mt-1 text-[12px] font-mono text-white/40 flex justify-between">
-            <span>坐标系: WGS-84</span>
-            <span>卫星数: 16</span>
           </div>
         </div>
 
         {/* Card 4: Compass Heading */}
-        <div className="bg-[#1A1A1C] border border-[#2A2A2C] rounded-sm p-3 flex items-center justify-between relative overflow-hidden">
-          <div className="flex flex-col">
-            <span className="text-[12px] text-white/40 font-mono uppercase font-bold tracking-wider">磁航向 (HDG)</span>
-            <span className="text-[24px] font-mono font-black text-white mt-1 flex items-center gap-1.5 leading-none">
+        <div className={`border rounded-sm p-4 relative overflow-hidden transition-colors duration-200 ${
+          isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+        }`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-slate-200' : 'text-white/15'}`}>
+            <Compass size={24} />
+          </div>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-slate-500' : 'text-white/40'}`}>磁航向 (HDG)</span>
+          <div className="flex items-baseline gap-1.5 mt-2">
+            <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-slate-900' : 'text-white'}`}>
               {currentPoint?.heading || '0'}°
             </span>
-            <span className="text-[12px] font-mono text-white/40 mt-1">
-              导航姿态: 稳定
-            </span>
-          </div>
-          {/* Visual Mini Compass Graphic */}
-          <div className="w-16 h-16 rounded-full border-2 border-white/10 flex items-center justify-center relative shrink-0 bg-black/40 mr-1 shadow-inner">
-            <span className="text-[12px] text-white/40 absolute top-0.5 font-bold leading-none scale-75">N</span>
-            <span className="text-[12px] text-white/20 absolute bottom-0.5 font-bold leading-none scale-75">S</span>
-            <span className="text-[12px] text-white/20 absolute left-0.5 font-bold leading-none scale-75">W</span>
-            <span className="text-[12px] text-white/20 absolute right-0.5 font-bold leading-none scale-75">E</span>
-            
-            <div 
-              className="w-0.5 h-12 bg-white relative transition-transform duration-300"
-              style={{ transform: `rotate(${currentPoint?.heading || 0}deg)` }}
-            >
-              {/* Needle pointer */}
-              <div className="w-2.5 h-2.5 bg-[#FF3B30] rounded-full absolute -top-1 left-1/2 transform -translate-x-1/2 border border-[#1A1A1C]"></div>
-            </div>
           </div>
         </div>
 
       </div>
 
-      {/* 2. Interactive Charts Section */}
-      <div className="flex-grow bg-[#151518] border border-[#2A2A2C] rounded-sm p-4 flex flex-col justify-between overflow-hidden">
+      {/* 2. Interactive Charts Section - Sized consistently to the top frame (~240px SVG), space below cleanly open */}
+      <div className={`border rounded-sm p-3.5 flex flex-col justify-between shrink-0 transition-colors duration-200 ${
+        isLight ? 'bg-white border-slate-200 shadow-xs' : 'bg-[#151518] border-[#2A2A2C]'
+      }`}>
         
-        {/* Chart Header */}
-        <div className="flex items-center justify-between border-b border-white/5 pb-2 shrink-0">
-          <div className="flex items-center gap-2">
-            <Activity size={12} className="text-[#00E5FF]" />
-            <h3 className="text-[16px] font-mono font-bold text-white uppercase tracking-wide">
-              全航程高度 / 真空速 实时剖面趋势图
-            </h3>
+        {/* Chart Header - Clean Legends */}
+        <div className={`flex items-center justify-between pb-2 shrink-0 border-b ${isLight ? 'border-slate-200' : 'border-white/5'}`}>
+          <div className="flex items-center gap-2.5 text-[12px] font-mono flex-wrap">
+            {/* Legend 1: Altitude */}
+            <button
+              onClick={() => toggleCurve('altitude')}
+              className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
+                visibleCurves.altitude
+                  ? (isLight ? 'bg-cyan-50 border-cyan-300 text-cyan-900 shadow-xs' : 'bg-cyan-950/30 border-cyan-500/40 text-cyan-300')
+                  : (isLight ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-50 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+              }`}
+              title="点击切换显示/隐藏高度曲线"
+            >
+              <span className="w-3 h-0.5 rounded-full bg-[#00E5FF]"></span>
+              <span className="font-semibold">高度 (km)</span>
+            </button>
+
+            {/* Legend 2: Ground Speed */}
+            <button
+              onClick={() => toggleCurve('groundSpeed')}
+              className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
+                visibleCurves.groundSpeed
+                  ? (isLight ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-xs' : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300')
+                  : (isLight ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-50 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+              }`}
+              title="点击切换显示/隐藏航速曲线"
+            >
+              <span className="w-3 h-0.5 rounded-full bg-[#34C759]"></span>
+              <span className="font-semibold">航速 (km/h)</span>
+            </button>
+
+            {/* Legend 3: Temperature */}
+            <button
+              onClick={() => toggleCurve('temperature')}
+              className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
+                visibleCurves.temperature
+                  ? (isLight ? 'bg-amber-50 border-amber-300 text-amber-900 shadow-xs' : 'bg-amber-950/30 border-amber-500/40 text-amber-300')
+                  : (isLight ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-50 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+              }`}
+              title="点击切换显示/隐藏气温曲线"
+            >
+              <span className="w-3 h-0.5 rounded-full bg-[#FF9500]"></span>
+              <span className="font-semibold">气温 (°C)</span>
+            </button>
+
+            {/* Legend 4: Humidity */}
+            <button
+              onClick={() => toggleCurve('humidity')}
+              className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
+                visibleCurves.humidity
+                  ? (isLight ? 'bg-purple-50 border-purple-300 text-purple-900 shadow-xs' : 'bg-purple-950/30 border-purple-500/40 text-purple-300')
+                  : (isLight ? 'bg-slate-100 border-slate-200 text-slate-400 opacity-50 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+              }`}
+              title="点击切换显示/隐藏湿度曲线"
+            >
+              <span className="w-3 h-0.5 rounded-full bg-[#AF52DE]"></span>
+              <span className="font-semibold">湿度 (%)</span>
+            </button>
           </div>
-          <div className="flex items-center gap-4 text-[12px] font-mono text-white/40">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-0.5 bg-gradient-to-r from-cyan-500 to-blue-500"></span>
-              <span>飞行高度 (米)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-0.5 border-t-2 border-dashed border-emerald-400"></span>
-              <span>真空速 (公里/小时)</span>
-            </div>
-            <span className="text-[12px] text-white/30">(可点击图表快速定位点)</span>
-          </div>
+
+          {/* Right: Quick Hint */}
+          <span className={`text-[11px] font-mono shrink-0 hidden sm:inline ${isLight ? 'text-slate-400' : 'text-white/30'}`}>
+            (支持悬停检视与点击定位)
+          </span>
         </div>
 
-        {/* Interactive SVG Rendering */}
-        <div className="flex-grow flex items-center justify-center pt-2 h-0 min-h-[140px]">
+        {/* Interactive SVG Rendering - Measured dynamically (~240px height) */}
+        <div ref={containerRef} className="h-[240px] w-full flex items-center justify-center pt-2">
           <svg
             ref={chartRef}
-            width="100%"
-            height="100%"
+            width={width}
+            height={height}
             viewBox={`0 0 ${width} ${height}`}
-            preserveAspectRatio="none"
-            className="cursor-crosshair select-none"
-            onClick={handleChartInteraction}
+            className="cursor-crosshair select-none w-full h-full"
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            onClick={handleChartClick}
           >
-            {/* Definitions for gorgeous gradients */}
-            <defs>
-              <linearGradient id="altAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00E5FF" stopOpacity="0.25" />
-                <stop offset="100%" stopColor="#00E5FF" stopOpacity="0.00" />
-              </linearGradient>
-            </defs>
+            {/* Chart Background Box */}
+            <rect
+              x={paddingLeft}
+              y={paddingTop}
+              width={innerWidth}
+              height={innerHeight}
+              fill={isLight ? "#F8FAFC" : "#101012"}
+              stroke={isLight ? "#CBD5E1" : "#26262A"}
+              strokeWidth={1}
+              rx={2}
+            />
 
-            {/* Grid horizontal grid lines */}
+            {/* Axis headers with generous spatial separation */}
+            {visibleCurves.temperature && (
+              <text x={8} y={paddingTop - 7} textAnchor="start" fill={isLight ? "#D97706" : "#FF9500"} fontSize="10.5" fontFamily="ui-monospace, monospace" fontWeight="bold">
+                温(°C)
+              </text>
+            )}
+            {visibleCurves.altitude && (
+              <text x={paddingLeft - 8} y={paddingTop - 7} textAnchor="end" fill={isLight ? "#0284C7" : "#00E5FF"} fontSize="10.5" fontFamily="ui-monospace, monospace" fontWeight="bold">
+                高(km)
+              </text>
+            )}
+            {visibleCurves.groundSpeed && (
+              <text x={width - paddingRight + 8} y={paddingTop - 7} textAnchor="start" fill={isLight ? "#16A34A" : "#34C759"} fontSize="10.5" fontFamily="ui-monospace, monospace" fontWeight="bold">
+                速(km/h)
+              </text>
+            )}
+            {visibleCurves.humidity && (
+              <text x={width - 8} y={paddingTop - 7} textAnchor="end" fill={isLight ? "#7C3AED" : "#AF52DE"} fontSize="10.5" fontFamily="ui-monospace, monospace" fontWeight="bold">
+                湿(%)
+              </text>
+            )}
+
+            {/* Horizontal Grid lines and Axis Tick Labels */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, gridIdx) => {
               const gridY = paddingTop + ratio * innerHeight;
               const gridAltVal = altDomain.max - ratio * (altDomain.max - altDomain.min);
-              const gridSpeedVal = speedDomain.max - ratio * (speedDomain.max - speedDomain.min);
+              const gridSpeedVal = groundSpeedDomain.max - ratio * (groundSpeedDomain.max - groundSpeedDomain.min);
+              const gridTempVal = tempDomain.max - ratio * (tempDomain.max - tempDomain.min);
+              const gridHumVal = humDomain.max - ratio * (humDomain.max - humDomain.min);
+
               return (
-                <g key={gridIdx} className="opacity-20">
+                <g key={gridIdx}>
                   <line
                     x1={paddingLeft}
                     y1={gridY}
                     x2={width - paddingRight}
                     y2={gridY}
-                    stroke="#2A2A2C"
+                    stroke={isLight ? "#E2E8F0" : "#202024"}
                     strokeWidth={1}
-                    strokeDasharray="2,2"
+                    strokeDasharray={ratio === 0 || ratio === 1 ? undefined : "2,2"}
                   />
-                  {/* Left Label: Altitude */}
-                  <text
-                    x={paddingLeft - 8}
-                    y={gridY + 4}
-                    textAnchor="end"
-                    fill="#00E5FF"
-                    fontSize="12"
-                    fontFamily="monospace"
-                  >
-                    {Math.round(gridAltVal)}
-                  </text>
-                  {/* Right Label: Speed */}
-                  <text
-                    x={width - paddingRight + 8}
-                    y={gridY + 4}
-                    textAnchor="start"
-                    fill="#34C759"
-                    fontSize="12"
-                    fontFamily="monospace"
-                  >
-                    {Math.round(gridSpeedVal)}
-                  </text>
+
+                  {/* Left Outer: Temperature */}
+                  {visibleCurves.temperature && (
+                    <text
+                      x={8}
+                      y={gridY + 3.5}
+                      textAnchor="start"
+                      fill={isLight ? "#D97706" : "#FF9500"}
+                      fontSize="11"
+                      fontFamily="ui-monospace, monospace"
+                    >
+                      {Math.round(gridTempVal)}°
+                    </text>
+                  )}
+
+                  {/* Left Inner: Altitude (km) */}
+                  {visibleCurves.altitude && (
+                    <text
+                      x={paddingLeft - 8}
+                      y={gridY + 3.5}
+                      textAnchor="end"
+                      fill={isLight ? "#0284C7" : "#00E5FF"}
+                      fontSize="11"
+                      fontFamily="ui-monospace, monospace"
+                      fontWeight="bold"
+                    >
+                      {(gridAltVal / 1000).toFixed(1)}
+                    </text>
+                  )}
+
+                  {/* Right Inner: Ground Speed */}
+                  {visibleCurves.groundSpeed && (
+                    <text
+                      x={width - paddingRight + 8}
+                      y={gridY + 3.5}
+                      textAnchor="start"
+                      fill={isLight ? "#16A34A" : "#34C759"}
+                      fontSize="11"
+                      fontFamily="ui-monospace, monospace"
+                      fontWeight="bold"
+                    >
+                      {Math.round(gridSpeedVal)}
+                    </text>
+                  )}
+
+                  {/* Right Outer: Humidity */}
+                  {visibleCurves.humidity && (
+                    <text
+                      x={width - 10}
+                      y={gridY + 3.5}
+                      textAnchor="end"
+                      fill={isLight ? "#7C3AED" : "#AF52DE"}
+                      fontSize="11"
+                      fontFamily="ui-monospace, monospace"
+                    >
+                      {Math.round(gridHumVal)}%
+                    </text>
+                  )}
                 </g>
               );
             })}
 
-            {/* Filled Area for Altitude */}
-            {altAreaPath && (
-              <path
-                d={altAreaPath}
-                fill="url(#altAreaGrad)"
-                className="transition-all duration-300"
-              />
-            )}
-
-            {/* Line for Altitude */}
+            {/* ====== ALL FOUR CURVES ON THE SAME CHART ====== */}
+            {/* 1. Altitude Curve (Cyan) */}
             {altLinePath && (
               <path
                 d={altLinePath}
                 fill="none"
-                stroke="#00E5FF"
-                strokeWidth={1.5}
+                stroke={isLight ? "#0284C7" : "#00E5FF"}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="transition-all duration-300"
               />
             )}
 
-            {/* Dash Line for Speed */}
+            {/* 2. Ground Speed Curve (Green) */}
             {speedLinePath && (
               <path
                 d={speedLinePath}
                 fill="none"
-                stroke="#34C759"
-                strokeWidth={1.5}
-                strokeDasharray="4,3"
+                stroke={isLight ? "#16A34A" : "#34C759"}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
                 className="transition-all duration-300"
               />
             )}
 
-            {/* Active Position Indicator bar */}
-            {relativeCurrentIndex !== -1 && (
-              <g>
-                <line
-                  x1={getX(relativeCurrentIndex)}
-                  y1={paddingTop}
-                  x2={getX(relativeCurrentIndex)}
-                  y2={height - paddingBottom}
-                  stroke="#FF3B30"
-                  strokeWidth={1.2}
-                  strokeDasharray="3,3"
-                />
-                
-                {/* Intersect point - Altitude */}
-                <circle
-                  cx={getX(relativeCurrentIndex)}
-                  cy={getAltY(currentPoint.altitude)}
-                  r={4}
-                  fill="#00E5FF"
-                  stroke="#0A0A0B"
-                  strokeWidth={1.5}
-                />
-
-                {/* Intersect point - Speed */}
-                <circle
-                  cx={getX(relativeCurrentIndex)}
-                  cy={getSpeedY(currentPoint.speed)}
-                  r={4}
-                  fill="#34C759"
-                  stroke="#0A0A0B"
-                  strokeWidth={1.5}
-                />
-
-                {/* Pulse Ring */}
-                <circle
-                  cx={getX(relativeCurrentIndex)}
-                  cy={getAltY(currentPoint.altitude)}
-                  r={8}
-                  fill="none"
-                  stroke="#00E5FF"
-                  strokeWidth={1}
-                  className="animate-ping"
-                  opacity={0.5}
-                />
-
-                {/* Timestamp Label at bottom */}
-                <text
-                  x={getX(relativeCurrentIndex)}
-                  y={height - 10}
-                  textAnchor="middle"
-                  fill="#FF3B30"
-                  fontSize="12"
-                  fontWeight="bold"
-                  fontFamily="monospace"
-                >
-                  {currentPoint.time}
-                </text>
-
-                {/* Real-time value badge box */}
-                <g transform={`translate(${Math.max(paddingLeft + 10, Math.min(width - paddingRight - 110, getX(relativeCurrentIndex) - 50))}, ${paddingTop + 10})`}>
-                  <rect
-                    width={100}
-                    height={40}
-                    fill="#1A1A1C"
-                    stroke="#2A2A2C"
-                    strokeWidth={1}
-                    rx={2}
-                  />
-                  <text x={8} y={15} fill="#00E5FF" fontSize="12" fontFamily="monospace">
-                    H: {currentPoint.altitude} m
-                  </text>
-                  <text x={8} y={30} fill="#34C759" fontSize="12" fontFamily="monospace">
-                    V: {currentPoint.speed} km/h
-                  </text>
-                </g>
-              </g>
+            {/* 3. Temperature Curve (Amber) */}
+            {tempLinePath && (
+              <path
+                d={tempLinePath}
+                fill="none"
+                stroke={isLight ? "#D97706" : "#FF9500"}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="transition-all duration-300"
+              />
             )}
 
-            {/* Baseline X-axis */}
+            {/* 4. Humidity Curve (Purple) */}
+            {humLinePath && (
+              <path
+                d={humLinePath}
+                fill="none"
+                stroke={isLight ? "#7C3AED" : "#AF52DE"}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="transition-all duration-300"
+              />
+            )}
+
+            {/* Playback current position dot on altitude curve */}
+            {relativeCurrentIndex !== -1 && visibleCurves.altitude && (
+              <circle
+                cx={getX(relativeCurrentIndex)}
+                cy={getAltY(currentPoint.altitude)}
+                r={4}
+                fill={isLight ? "#0284C7" : "#00E5FF"}
+                stroke={isLight ? "#FFFFFF" : "#0A0A0B"}
+                strokeWidth={2}
+                className="transition-all duration-150"
+              />
+            )}
+
+            {/* ====== MOUSE HOVER INSPECTION GUIDELINE & MULTI-METRIC TOOLTIP ====== */}
+            {hoverIndex !== null && visibleData[hoverIndex] && (() => {
+              const hoverPoint = visibleData[hoverIndex];
+              const hoverX = getX(hoverIndex);
+              const badgeWidth = 152;
+              const badgeHeight = 90;
+              const isRightSide = hoverX > width / 2;
+              const tooltipX = isRightSide
+                ? Math.max(paddingLeft + 8, hoverX - badgeWidth - 14)
+                : Math.min(width - paddingRight - badgeWidth - 8, hoverX + 14);
+              const tooltipY = paddingTop + 4;
+
+              return (
+                <g pointerEvents="none">
+                  {/* Vertical red dashed inspection line following mouse cursor */}
+                  <line
+                    x1={hoverX}
+                    y1={paddingTop}
+                    x2={hoverX}
+                    y2={height - paddingBottom}
+                    stroke="#FF3B30"
+                    strokeWidth={1.2}
+                    strokeDasharray="3,3"
+                  />
+
+                  {/* Intersect point - Altitude */}
+                  {visibleCurves.altitude && (
+                    <circle
+                      cx={hoverX}
+                      cy={getAltY(hoverPoint.altitude)}
+                      r={3.8}
+                      fill={isLight ? "#0284C7" : "#00E5FF"}
+                      stroke={isLight ? "#FFFFFF" : "#0A0A0B"}
+                      strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* Intersect point - Ground Speed */}
+                  {visibleCurves.groundSpeed && (
+                    <circle
+                      cx={hoverX}
+                      cy={getSpeedY(hoverPoint.groundSpeed ?? (hoverPoint.speed + 40))}
+                      r={3.8}
+                      fill={isLight ? "#16A34A" : "#34C759"}
+                      stroke={isLight ? "#FFFFFF" : "#0A0A0B"}
+                      strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* Intersect point - Temperature */}
+                  {visibleCurves.temperature && (
+                    <circle
+                      cx={hoverX}
+                      cy={getTempY(hoverPoint.temperature ?? -15)}
+                      r={3.8}
+                      fill={isLight ? "#D97706" : "#FF9500"}
+                      stroke={isLight ? "#FFFFFF" : "#0A0A0B"}
+                      strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* Intersect point - Humidity */}
+                  {visibleCurves.humidity && (
+                    <circle
+                      cx={hoverX}
+                      cy={getHumY(hoverPoint.humidity ?? 50)}
+                      r={3.8}
+                      fill={isLight ? "#7C3AED" : "#AF52DE"}
+                      stroke={isLight ? "#FFFFFF" : "#0A0A0B"}
+                      strokeWidth={1.5}
+                    />
+                  )}
+
+                  {/* Tooltip badge box */}
+                  <g transform={`translate(${tooltipX}, ${tooltipY})`}>
+                    <rect
+                      width={badgeWidth}
+                      height={badgeHeight}
+                      fill={isLight ? "#FFFFFF" : "#141418"}
+                      stroke={isLight ? "#CBD5E1" : "#2E2E34"}
+                      strokeWidth={1}
+                      rx={3}
+                      className={isLight ? "shadow-md" : "shadow-xl"}
+                      opacity={0.96}
+                    />
+                    <text x={10} y={16} fill={isLight ? "#0F172A" : "#FFFFFF"} fontSize="11" fontFamily="ui-monospace, monospace" fontWeight="bold">
+                      时刻: {hoverPoint.time}
+                    </text>
+                    <line x1={8} y1={22} x2={badgeWidth - 8} y2={22} stroke={isLight ? "#E2E8F0" : "#26262B"} strokeWidth={1} />
+                    <text x={10} y={36} fill={isLight ? "#0284C7" : "#00E5FF"} fontSize="11" fontFamily="ui-monospace, monospace">
+                      高度: {(hoverPoint.altitude / 1000).toFixed(2)} km
+                    </text>
+                    <text x={10} y={52} fill={isLight ? "#16A34A" : "#34C759"} fontSize="11" fontFamily="ui-monospace, monospace">
+                      航速: {hoverPoint.groundSpeed ?? hoverPoint.speed} km/h
+                    </text>
+                    <text x={10} y={68} fill={isLight ? "#D97706" : "#FF9500"} fontSize="11" fontFamily="ui-monospace, monospace">
+                      气温: {hoverPoint.temperature ?? '---'} °C
+                    </text>
+                    <text x={10} y={84} fill={isLight ? "#7C3AED" : "#AF52DE"} fontSize="11" fontFamily="ui-monospace, monospace">
+                      湿度: {hoverPoint.humidity ?? '---'} %
+                    </text>
+                  </g>
+                </g>
+              );
+            })()}
+
+            {/* ====== BASELINE X-AXIS & TIME TICKS ====== */}
             <line
               x1={paddingLeft}
               y1={height - paddingBottom}
               x2={width - paddingRight}
               y2={height - paddingBottom}
-              stroke="#2A2A2C"
-              strokeWidth={1.5}
+              stroke={isLight ? "#CBD5E1" : "#26262A"}
+              strokeWidth={1}
             />
 
-            {/* Time labels under X-axis */}
+            {/* Time labels under X-axis, aligned cleanly */}
             {visibleData.length > 0 && [0, 0.25, 0.5, 0.75, 1].map((ratio, timeIdx) => {
               const dataIdx = Math.round(ratio * (visibleData.length - 1));
               const pt = visibleData[dataIdx];
               if (!pt) return null;
+
+              const tickX = getX(dataIdx);
+              let anchor: 'start' | 'middle' | 'end' = 'middle';
+              let adjustedX = tickX;
+              if (timeIdx === 0) {
+                anchor = 'start';
+                adjustedX = paddingLeft;
+              } else if (timeIdx === 4) {
+                anchor = 'end';
+                adjustedX = width - paddingRight;
+              }
+
               return (
                 <text
                   key={timeIdx}
-                  x={getX(dataIdx)}
-                  y={height - 10}
-                  textAnchor="middle"
-                  fill="#8E8E93"
-                  fontSize="12"
-                  fontFamily="monospace"
+                  x={adjustedX}
+                  y={height - 9}
+                  textAnchor={anchor}
+                  fill={isLight ? "#64748B" : "#8E8E93"}
+                  fontSize="11"
+                  fontFamily="ui-monospace, monospace"
                 >
                   {pt.time}
                 </text>
@@ -455,19 +718,12 @@ export default function FlightTelemetryPanel({
           </svg>
         </div>
 
-        {/* Dynamic Flight Progress Info Bar */}
-        <div className="flex justify-between items-center bg-black/40 px-3 py-1.5 border border-white/5 rounded-xs mt-2 shrink-0">
-          <div className="text-[12px] font-mono text-white/50 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
-            <span>当前段航线飞行进度: {Math.round((relativeCurrentIndex / Math.max(1, visibleData.length - 1)) * 100)}%</span>
-          </div>
-          <div className="text-[12px] font-mono text-white/40">
-            <span>数据采样范围: {visibleData[0]?.time || '---'} 至 {visibleData[visibleData.length - 1]?.time || '---'}</span>
-          </div>
-        </div>
-
       </div>
+
+      {/* Clean empty space below as requested */}
+      <div className="flex-grow"></div>
 
     </div>
   );
 }
+

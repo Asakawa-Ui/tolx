@@ -61,7 +61,7 @@ export default function App() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   // Mapped algorithm determining the trajectory path coloring
-  const [mappedAlgorithmId, setMappedAlgorithmId] = useState<string>('lwc');
+  const [mappedAlgorithmId, setMappedAlgorithmId] = useState<string>('ic_index');
 
   // Algorithm category filters for product listing layout
   const [activeTab, setActiveTab] = useState<'all' | 'ordinary' | 'ml' | 'sensor'>('all');
@@ -79,6 +79,7 @@ export default function App() {
         colors: {
           none: '#6B7280', // sleek visible gray
           light: '#0A84FF', // vibrant blue
+          lightModerate: '#22D3EE', // cyan for light-moderate
           moderate: '#FF9F0A', // sleek orange
           severe: '#FF3B30'  // sleek red
         }
@@ -137,7 +138,7 @@ export default function App() {
     setEndIndex(24 * scaleFactor);
     setLiveMaxIndex(24 * scaleFactor);
     setHoveredIndex(null);
-    setMappedAlgorithmId('lwc');
+    setMappedAlgorithmId('ic_index');
     setActiveTab('all');
     setRightTab('icing');
     setIntervalVal('1s');
@@ -151,6 +152,7 @@ export default function App() {
         colors: {
           none: '#6B7280',
           light: '#0A84FF',
+          lightModerate: '#22D3EE',
           moderate: '#FF9F0A',
           severe: '#FF3B30'
         }

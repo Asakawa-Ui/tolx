@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { FlightDataPoint, IcingAlgorithmDef, ProductConfig, SystemLog } from '../types';
+import { evaluateIcingRisk } from '../data/mockData';
 import { Plane, Compass, ArrowUpRight, Shield, AlertTriangle, Cpu, Terminal, RefreshCcw } from 'lucide-react';
 
 interface SidebarProps {
@@ -25,25 +26,33 @@ export default function Sidebar({
   const activeConfig = configs[mappedAlgorithmId];
 
   const icingStatusInfo = useMemo(() => {
-    if (!activeMappedOutput || !activeConfig) return { label: '无风险', color: '#10b981', desc: '大气参数处于安全无积冰区间' };
+    if (!activeMappedOutput || !activeConfig) return { label: '无积冰 (NONE)', color: '#10b981', desc: '大气参数处于安全无积冰区间' };
     const val = activeMappedOutput.value;
     const th = activeConfig.thresholds;
+    const risk = evaluateIcingRisk(mappedAlgorithmId, val, th);
 
-    if (val >= th.severe) {
+    if (risk.level === 'Severe') {
       return { 
-        label: '极重积冰 (SEVERE)', 
+        label: '重度积冰 (SEVERE)', 
         color: activeConfig.colors.severe, 
         desc: '超过安全裕度！极易导致升力骤降，建议防冰加温并调整高度脱离积冰云层' 
       };
     }
-    if (val >= th.moderate) {
+    if (risk.level === 'Moderate') {
       return { 
         label: '中度积冰 (MODERATE)', 
         color: activeConfig.colors.moderate, 
         desc: '持续积冰警告。请监控空速和迎角，必要时开启气动翼面除冰 boots' 
       };
     }
-    if (val >= th.light) {
+    if (risk.level === 'LightModerate') {
+      return { 
+        label: '轻-中度积冰 (LIGHT-MODERATE)', 
+        color: activeConfig.colors.lightModerate || '#22D3EE', 
+        desc: '处于积冰增强带，需警惕积冰加剧趋势' 
+      };
+    }
+    if (risk.level === 'Light') {
       return { 
         label: '轻度积冰 (LIGHT)', 
         color: activeConfig.colors.light, 
@@ -55,7 +64,7 @@ export default function Sidebar({
       color: activeConfig.colors.none, 
       desc: '当前未监测到可量化的过冷液态水及积冰风险，飞行姿态稳定' 
     };
-  }, [activeMappedOutput, activeConfig]);
+  }, [activeMappedOutput, activeConfig, mappedAlgorithmId]);
 
   // Event Logs matching flight times
   const systemLogs: SystemLog[] = useMemo(() => {
