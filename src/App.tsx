@@ -1,12 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { generateFlightData, ALGORITHMS } from './data/mockData';
+import { generateFlightData, ALGORITHMS, TURBULENCE_ALGORITHMS, ALL_ALGORITHMS } from './data/mockData';
 import { ProductConfig, FlightDataPoint } from './types';
 import TitleBar from './components/TitleBar';
 import FlightMap from './components/FlightMap';
 import TimeSlider from './components/TimeSlider';
 import ProductCard from './components/ProductCard';
 import FlightTelemetryPanel from './components/FlightTelemetryPanel';
-import { Filter, Layers, Database, BarChart3, Radio, Cpu, Plane } from 'lucide-react';
+import { Filter, Layers, Database, BarChart3, Radio, Cpu, Plane, Activity } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 
 export interface FlightSortie {
@@ -70,22 +70,32 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'all' | 'ordinary' | 'ml' | 'sensor'>('all');
 
   // Tab state for the right workspace panel: 'flight' (飞行监测) or 'icing' (积冰监测)
-  const [rightTab, setRightTab] = useState<'flight' | 'icing'>('icing');
+  const [rightTab, setRightTab] = useState<'flight' | 'icing' | 'turbulence'>('icing');
 
   // High-density product configuration records (thresholds, custom colors)
   const [configs, setConfigs] = useState<Record<string, ProductConfig>>(() => {
     const records: Record<string, ProductConfig> = {};
-    ALGORITHMS.forEach(algo => {
+    ALL_ALGORITHMS.forEach(algo => {
+      const isTurb = algo.category === 'turbulence' || algo.type === 'turbulence';
       records[algo.id] = {
         algorithmId: algo.id,
         thresholds: { ...algo.defaultThresholds },
         colors: {
-          none: '#6B7280', // sleek visible gray
-          light: '#0A84FF', // vibrant blue
-          lightModerate: '#22D3EE', // cyan for light-moderate
-          moderate: '#FF9F0A', // sleek orange
-          severe: '#FF3B30'  // sleek red
-        }
+          none: isTurb ? '#0284C7' : '#6B7280',
+          light: '#0A84FF',
+          lightModerate: '#22D3EE',
+          moderate: '#FF9F0A',
+          severe: '#FF3B30'
+        },
+        levels: isTurb ? [
+          {
+            id: 'base',
+            name: '无',
+            minThreshold: 0,
+            color: '#0284C7',
+            isBase: true
+          }
+        ] : undefined
       };
     });
     return records;
@@ -179,13 +189,13 @@ export default function App() {
 
   return (
     <div className={`min-h-screen w-full flex items-start justify-center p-6 font-sans overflow-auto transition-colors duration-200 ${
-      isLight ? 'bg-[#D6D0C4] text-[#292524] selection:bg-[#1C1917] selection:text-[#FAF7F0]' : 'bg-[#070708] text-[#E0E0E0] selection:bg-white selection:text-black'
+      isLight ? 'bg-[#DDDBD7] text-[#27272A] selection:bg-[#18181B] selection:text-[#FAFAF8]' : 'bg-[#070708] text-[#E0E0E0] selection:bg-white selection:text-black'
     }`}>
       
       {/* Outer Application Window Wrap (PC Client Simulator Skin) */}
       <div 
         className={`w-[1920px] h-[1080px] shrink-0 flex flex-col rounded-md shadow-2xl overflow-hidden border transition-colors duration-200 ${
-          isLight ? 'bg-[#F4F0E6] border-[#CDC5B4] text-[#292524] shadow-[0_20px_50px_rgba(40,30,20,0.18)]' : 'bg-[#0A0A0B] border-[#2A2A2C]'
+          isLight ? 'bg-[#F4F3F0] border-[#D5D3CE] text-[#27272A] shadow-[0_20px_50px_rgba(24,24,27,0.14)]' : 'bg-[#0A0A0B] border-[#2A2A2C]'
         }`} 
         id="pc-app-skin"
       >
@@ -231,24 +241,24 @@ export default function App() {
             <div className="col-span-3 flex flex-col h-full overflow-hidden">
               <div 
                 className={`border rounded-sm p-4 space-y-4 h-full flex flex-col overflow-hidden transition-colors duration-200 ${
-                  isLight ? 'bg-[#FAF7F0] border-[#D8D1C2]' : 'bg-[#121214] border-[#2A2A2C]'
+                  isLight ? 'bg-[#FAFAF8] border-[#DFDDD8]' : 'bg-[#121214] border-[#2A2A2C]'
                 }`} 
                 id="workspace-tabs-container"
               >
                 
                 {/* Header with Tab Controls */}
                 <div className={`flex items-center justify-between border-b pb-3 shrink-0 ${
-                  isLight ? 'border-[#E2DCCE]' : 'border-[#2A2A2C]'
+                  isLight ? 'border-[#E4E3DE]' : 'border-[#2A2A2C]'
                 }`}>
                   <div className={`flex items-center gap-1.5 p-1 border rounded-sm ${
-                    isLight ? 'bg-[#EAE4D6] border-[#CDC5B4]' : 'bg-[#17171A] border-[#2A2A2C]'
+                    isLight ? 'bg-[#ECEBE7] border-[#D5D3CE]' : 'bg-[#17171A] border-[#2A2A2C]'
                   }`}>
                     <button
                       onClick={() => setRightTab('flight')}
                       className={`px-4 py-1.5 font-mono text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center gap-2 rounded-xs ${
                         rightTab === 'flight'
-                          ? (isLight ? 'bg-[#FAF7F0] text-[#0284C7] font-bold border border-[#CDC5B4] shadow-xs' : 'bg-[#2A2A2C] text-[#00E5FF] font-bold border-white/5 shadow-sm')
-                          : (isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#E2DCCE]' : 'text-white/40 hover:text-white hover:bg-white/5')
+                          ? (isLight ? 'bg-[#FAFAF8] text-[#0284C7] font-bold border border-[#D5D3CE] shadow-xs' : 'bg-[#2A2A2C] text-[#00E5FF] font-bold border-white/5 shadow-sm')
+                          : (isLight ? 'text-[#71717A] hover:text-[#18181B] hover:bg-[#E4E3DE]' : 'text-white/40 hover:text-white hover:bg-white/5')
                       }`}
                     >
                       <Plane size={13} />
@@ -258,12 +268,23 @@ export default function App() {
                       onClick={() => setRightTab('icing')}
                       className={`px-4 py-1.5 font-mono text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center gap-2 rounded-xs ${
                         rightTab === 'icing'
-                          ? (isLight ? 'bg-[#FAF7F0] text-[#D97706] font-bold border border-[#CDC5B4] shadow-xs' : 'bg-[#2A2A2C] text-[#FF9F0A] font-bold border-white/5 shadow-sm')
-                          : (isLight ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#E2DCCE]' : 'text-white/40 hover:text-white hover:bg-white/5')
+                          ? (isLight ? 'bg-[#FAFAF8] text-[#0284C7] font-bold border border-[#D5D3CE] shadow-xs' : 'bg-[#2A2A2C] text-[#FF9F0A] font-bold border-white/5 shadow-sm')
+                          : (isLight ? 'text-[#71717A] hover:text-[#18181B] hover:bg-[#E4E3DE]' : 'text-white/40 hover:text-white hover:bg-white/5')
                       }`}
                     >
                       <BarChart3 size={13} />
                       <span>积冰监测</span>
+                    </button>
+                    <button
+                      onClick={() => setRightTab('turbulence')}
+                      className={`px-4 py-1.5 font-mono text-xs uppercase tracking-wider cursor-pointer transition-colors flex items-center gap-2 rounded-xs ${
+                        rightTab === 'turbulence'
+                          ? (isLight ? 'bg-[#FAFAF8] text-[#0284C7] font-bold border border-[#D5D3CE] shadow-xs' : 'bg-[#2A2A2C] text-[#38BDF8] font-bold border-white/5 shadow-sm')
+                          : (isLight ? 'text-[#71717A] hover:text-[#18181B] hover:bg-[#E4E3DE]' : 'text-white/40 hover:text-white hover:bg-white/5')
+                      }`}
+                    >
+                      <Activity size={13} />
+                      <span>颠簸监测</span>
                     </button>
                   </div>
                 </div>
@@ -281,13 +302,61 @@ export default function App() {
                       endIndex={endIndex}
                     />
                   </div>
-                ) : (
+                ) : rightTab === 'icing' ? (
                   <div className="flex-grow overflow-hidden flex flex-col">
                     {/* Core Icing Products Component Grid */}
-                    <div className="grid grid-cols-2 gap-3 flex-grow overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="grid grid-cols-2 gap-3 content-start auto-rows-max flex-grow overflow-y-auto pr-1 custom-scrollbar">
                       {filteredAlgorithms.map((algo) => {
                         const isMapped = algo.id === mappedAlgorithmId;
-                        const config = configs[algo.id];
+                        const config = configs[algo.id] || {
+                          algorithmId: algo.id,
+                          thresholds: { ...algo.defaultThresholds },
+                          colors: {
+                            none: '#6B7280',
+                            light: '#0A84FF',
+                            lightModerate: '#22D3EE',
+                            moderate: '#FF9F0A',
+                            severe: '#FF3B30'
+                          }
+                        };
+
+                        return (
+                          <ProductCard
+                            key={algo.id}
+                            algorithm={algo}
+                            flightData={flightData}
+                            visibleData={visibleData}
+                            currentIndex={currentIndex}
+                            hoveredIndex={hoveredIndex}
+                            onHoverIndex={setHoveredIndex}
+                            onSelectIndex={setCurrentIndex}
+                            config={config}
+                            onChangeConfig={(newCfg) => handleUpdateConfig(algo.id, newCfg)}
+                            isMappedOnMap={isMapped}
+                            onMapToTrajectory={() => setMappedAlgorithmId(algo.id)}
+                            systemMode={systemMode}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-grow overflow-hidden flex flex-col">
+                    {/* Core Turbulence Products Component Grid (4 products in a balanced 2x2 grid) */}
+                    <div className="grid grid-cols-2 gap-3 content-start auto-rows-max flex-grow overflow-y-auto pr-1 custom-scrollbar">
+                      {TURBULENCE_ALGORITHMS.map((algo) => {
+                        const isMapped = algo.id === mappedAlgorithmId;
+                        const config = configs[algo.id] || {
+                          algorithmId: algo.id,
+                          thresholds: { ...algo.defaultThresholds },
+                          colors: {
+                            none: '#6B7280',
+                            light: '#0A84FF',
+                            lightModerate: '#22D3EE',
+                            moderate: '#FF9F0A',
+                            severe: '#FF3B30'
+                          }
+                        };
 
                         return (
                           <ProductCard
@@ -343,12 +412,12 @@ export default function App() {
 
         {/* Operating System Styled Footer status bar */}
         <div className={`border-t px-4 py-1.5 flex items-center justify-between text-[12px] font-mono shrink-0 transition-colors duration-200 ${
-          isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#78716C]' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/40'
+          isLight ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#71717A]' : 'bg-[#1A1A1C] border-[#2A2A2C] text-white/40'
         }`}>
           <div className="flex gap-4">
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[#34C759]"></span>
-              <span className={isLight ? 'text-[#292524] font-medium' : ''}>演示系统状态: 运行正常</span>
+              <span className={isLight ? 'text-[#27272A] font-medium' : ''}>演示系统状态: 运行正常</span>
             </span>
             <span>数据源: 动态气象仿真数据</span>
             <span>数据更新情况: 正常</span>

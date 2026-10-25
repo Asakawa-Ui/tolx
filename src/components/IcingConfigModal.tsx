@@ -21,20 +21,35 @@ export const buildDefaultLevels = (algo: IcingAlgorithmDef, cfg?: ProductConfig)
     moderate: '#FF9F0A',
     severe: '#FF3B30'
   };
-  const thresholds = cfg?.thresholds || algo.defaultThresholds;
+  const isTurb = algo.category === 'turbulence' || algo.type === 'turbulence';
+
+  // If turbulence and no custom levels saved yet: default thresholds are '暂无', only 1 base level exists!
+  if (isTurb && (!cfg?.levels || cfg.levels.length === 0)) {
+    return [
+      {
+        id: 'base',
+        name: '无',
+        minThreshold: 0,
+        color: colors.none && colors.none !== '#6B7280' ? colors.none : '#0284C7',
+        isBase: true
+      }
+    ];
+  }
+
+  const thresholds = { ...(cfg?.thresholds || algo.defaultThresholds) };
   const labels = algo.levelLabels;
 
   const list: IcingLevelConfig[] = [
     {
       id: 'none',
-      name: labels?.none || '无积冰',
+      name: labels?.none || (isTurb ? '无颠簸' : '无积冰'),
       minThreshold: thresholds.light, // base level boundary
       color: colors.none || '#6B7280',
       isBase: true
     },
     {
       id: 'light',
-      name: labels?.light || '轻度积冰',
+      name: labels?.light || (isTurb ? '轻度颠簸' : '轻度积冰'),
       minThreshold: thresholds.light,
       color: colors.light || '#0A84FF'
     }
@@ -43,7 +58,7 @@ export const buildDefaultLevels = (algo: IcingAlgorithmDef, cfg?: ProductConfig)
   if (thresholds.lightModerate !== undefined || algo.defaultThresholds.lightModerate !== undefined) {
     list.push({
       id: 'lightModerate',
-      name: labels?.lightModerate || '轻-中度积冰',
+      name: labels?.lightModerate || (isTurb ? '轻-中度颠簸' : '轻-中度积冰'),
       minThreshold: thresholds.lightModerate ?? algo.defaultThresholds.lightModerate ?? 3,
       color: colors.lightModerate || '#22D3EE'
     });
@@ -51,14 +66,14 @@ export const buildDefaultLevels = (algo: IcingAlgorithmDef, cfg?: ProductConfig)
 
   list.push({
     id: 'moderate',
-    name: labels?.moderate || '中度积冰',
+    name: labels?.moderate || (isTurb ? '中度颠簸' : '中度积冰'),
     minThreshold: thresholds.moderate,
     color: colors.moderate || '#FF9F0A'
   });
 
   list.push({
     id: 'severe',
-    name: labels?.severe || '重度积冰',
+    name: labels?.severe || (isTurb ? '重度颠簸' : '重度积冰'),
     minThreshold: thresholds.severe,
     color: colors.severe || '#FF3B30'
   });
@@ -132,7 +147,55 @@ export default function IcingConfigModal({
     setLevels(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleAddLevel = () => {
+  const isTurb = algorithm.category === 'turbulence' || algorithm.type === 'turbulence';
+
+    const handleAddLevel = () => {
+    // If only base level exists for turbulence: first level added is '轻度'
+    if (isTurb && levels.length === 1) {
+      const step = algorithm.id === 'HTG' ? 3 : algorithm.id === 'MOS' ? 8 : 10;
+      setLevels(prev => [
+        { ...prev[0], name: '无' },
+        {
+          id: 'light',
+          name: '轻度颠簸',
+          minThreshold: step,
+          color: '#0A84FF',
+          isBase: false
+        }
+      ]);
+      return;
+    }
+
+    if (isTurb && levels.length === 2) {
+      const step = algorithm.id === 'HTG' ? 3 : algorithm.id === 'MOS' ? 8 : 10;
+      setLevels(prev => [
+        ...prev,
+        {
+          id: 'moderate',
+          name: '中度颠簸',
+          minThreshold: step * 2,
+          color: '#FF9F0A',
+          isBase: false
+        }
+      ]);
+      return;
+    }
+
+    if (isTurb && levels.length === 3) {
+      const step = algorithm.id === 'HTG' ? 3 : algorithm.id === 'MOS' ? 8 : 10;
+      setLevels(prev => [
+        ...prev,
+        {
+          id: 'severe',
+          name: '重度颠簸',
+          minThreshold: step * 3,
+          color: '#FF3B30',
+          isBase: false
+        }
+      ]);
+      return;
+    }
+
     const lastLevel = levels[levels.length - 1];
     const step = algorithm.maxVal <= 10 ? 1 : 20;
     const nextVal = lastLevel ? lastLevel.minThreshold + step : 100;
@@ -141,7 +204,7 @@ export default function IcingConfigModal({
 
     const newLevel: IcingLevelConfig = {
       id: `custom_${Date.now()}`,
-      name: `极重度积冰`,
+      name: isTurb ? '极重度颠簸' : '极重度积冰',
       minThreshold: nextVal,
       color: newColor,
       isBase: false
@@ -197,24 +260,24 @@ export default function IcingConfigModal({
     >
       <div
         className={`w-full max-w-[580px] rounded-lg shadow-2xl border flex flex-col overflow-hidden transition-colors duration-200 ${
-          isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#1C1917]' : 'bg-[#141416] border-[#2A2A2C] text-[#E0E0E0]'
+          isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] text-[#18181B]' : 'bg-[#141416] border-[#2A2A2C] text-[#E0E0E0]'
         }`}
         onClick={e => e.stopPropagation()}
       >
-        {/* 顶部标题栏：简化统一为「阈值与颜色配置」，右侧设有 ✕ 关闭按钮 */}
+        {/* 顶部标题栏 */}
         <div
           className={`px-5 py-3.5 flex items-center justify-between border-b ${
-            isLight ? 'border-[#CDC5B4] bg-[#EAE4D6]' : 'border-[#262629] bg-[#17171A]'
+            isLight ? 'border-[#D5D3CE] bg-[#ECEBE7]' : 'border-[#262629] bg-[#17171A]'
           }`}
         >
-          <h2 className={`text-sm font-bold tracking-tight ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>
+          <h2 className={`text-sm font-bold tracking-tight ${isLight ? 'text-[#18181B]' : 'text-white'}`}>
             阈值与颜色配置
           </h2>
           <button
             onClick={onClose}
             className={`w-7 h-7 flex items-center justify-center rounded-sm transition-colors cursor-pointer text-sm font-semibold ${
               isLight
-                ? 'text-[#78716C] hover:text-[#1C1917] hover:bg-[#DDD5C5]'
+                ? 'text-[#71717A] hover:text-[#18181B] hover:bg-[#E2E0DB]'
                 : 'text-white/40 hover:text-white hover:bg-white/10'
             }`}
             title="关闭 (✕)"
@@ -223,165 +286,158 @@ export default function IcingConfigModal({
           </button>
         </div>
 
-        {/* 内层分级列表面板 */}
-        <div className="p-5 space-y-4">
+        {/* 内容主体：单层扁平布局，无嵌套卡片容器 */}
+        <div className="p-5 flex flex-col gap-3">
+          {/* 表头：颜色、分级名称、分级阈值、操作 */}
           <div
-            className={`border rounded-md overflow-hidden ${
-              isLight ? 'border-[#CDC5B4] bg-[#FAF7F0]' : 'border-[#262629] bg-[#0E0E10]'
+            className={`grid grid-cols-12 px-2 py-1.5 text-xs font-semibold border-b ${
+              isLight ? 'border-[#D5D3CE] text-[#71717A]' : 'border-[#262629] text-white/50'
             }`}
           >
-            {/* 表头：颜色、分级名称、分级阈值、操作 */}
-            <div
-              className={`grid grid-cols-12 px-3.5 py-2 text-xs font-semibold border-b ${
-                isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#78716C]' : 'bg-[#18181B] border-[#262629] text-white/50'
-              }`}
-            >
-              <div className="col-span-2 text-center">颜色</div>
-              <div className="col-span-4 pl-1">分级名称</div>
-              <div className="col-span-4 text-center">分级阈值</div>
-              <div className="col-span-2 text-center">操作</div>
-            </div>
-
-            {/* 分级行列表 */}
-            <div className={`divide-y max-h-[310px] overflow-y-auto custom-scrollbar ${
-              isLight ? 'divide-[#DDD7C8]' : 'divide-[#262629]/60'
-            }`}>
-              {levels.map((level, idx) => {
-                const isBase = idx === 0;
-
-                return (
-                  <div
-                    key={level.id || `lvl-${idx}`}
-                    className={`grid grid-cols-12 items-center px-3.5 py-2.5 transition-colors ${
-                      isLight
-                        ? 'hover:bg-[#F2EFE8] border-b border-[#DDD7C8] last:border-b-0'
-                        : 'hover:bg-white/[0.02] border-b border-[#222225] last:border-b-0'
-                    }`}
-                  >
-                    {/* 颜色色块：采用圆角矩形色块展示（灰、蓝、橙、红等），点击色块可直接调出调色板即时选色 */}
-                    <div className="col-span-2 flex items-center justify-center">
-                      <div
-                        className="w-8 h-6 rounded-md shadow-xs border border-white/20 transition-all hover:scale-105 active:scale-95 cursor-pointer relative overflow-hidden group"
-                        style={{ backgroundColor: level.color }}
-                        title="点击选择颜色"
-                      >
-                        {/* Native color picker overlaid with opacity-0 for instant click response */}
-                        <input
-                          type="color"
-                          value={level.color}
-                          onChange={(e) => handleLevelColorChange(idx, e.target.value)}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                      </div>
-                    </div>
-
-                    {/* 分级名称：输入框内字体颜色与对应等级颜色联动（如「轻度积冰」为蓝色粗体、「中度积冰」为橙色粗体、「重度积冰」为红色粗体） */}
-                    <div className="col-span-4 pr-2">
-                      <input
-                        type="text"
-                        value={level.name}
-                        onChange={(e) => handleLevelNameChange(idx, e.target.value)}
-                        style={{ color: level.color }}
-                        className={`w-full px-2.5 py-1 text-xs font-bold rounded-sm border focus:outline-none transition-colors ${
-                          isLight
-                            ? 'bg-[#FAF7F0] border-[#CDC5B4] focus:border-[#78716C] text-[#1C1917]'
-                            : 'bg-[#18181B] border-[#2A2A2C] focus:border-white/30'
-                        }`}
-                        placeholder="分级名称"
-                      />
-                    </div>
-
-                    {/* 分级阈值：首行显示 < 0，后续分级显示 ≥ 0、≥ 40、≥ 70 等居中加粗数值输入框 */}
-                    <div className="col-span-4 flex items-center justify-center gap-1.5">
-                      {isBase ? (
-                        <div
-                          className={`font-mono font-bold text-xs px-3 py-1 rounded-sm ${
-                            isLight ? 'bg-[#EAE4D6] text-[#78716C]' : 'bg-white/5 text-white/50'
-                          }`}
-                        >
-                          &lt; {firstThresholdValue}
-                        </div>
-                      ) : (
-                        <>
-                          <span className={`text-xs font-bold ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>
-                            &ge;
-                          </span>
-                          <input
-                            type="number"
-                            step={algorithm.maxVal <= 10 ? "0.1" : "1"}
-                            value={level.minThreshold}
-                            onChange={(e) => handleLevelThresholdChange(idx, parseFloat(e.target.value) || 0)}
-                            className={`w-20 font-mono font-bold text-center px-1.5 py-1 text-xs rounded-sm border focus:outline-none transition-colors ${
-                              isLight
-                                ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#1C1917] focus:border-[#78716C]'
-                                : 'bg-[#18181B] border-[#2A2A2C] text-white focus:border-white/30'
-                            }`}
-                          />
-                        </>
-                      )}
-                    </div>
-
-                    {/* 操作列：首行保留空白，后续分级右侧提供垃圾桶图标，支持删除对应分级 */}
-                    <div className="col-span-2 flex items-center justify-center">
-                      {!isBase ? (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveLevel(idx)}
-                          className={`p-1.5 rounded-sm transition-colors cursor-pointer ${
-                            isLight
-                              ? 'text-[#78716C] hover:text-red-600 hover:bg-red-50'
-                              : 'text-white/35 hover:text-red-400 hover:bg-red-500/10'
-                          }`}
-                          title="删除该分级"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      ) : (
-                        <div className="w-5 h-5" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 虚线分割与增级统计：底部虚线分隔，左侧提供 + 添加分级 按钮，右侧显示实时的 当前共 X 个分级 计数 */}
-            <div
-              className={`px-3.5 py-2.5 flex items-center justify-between border-t border-dashed ${
-                isLight ? 'border-[#CDC5B4] bg-[#EAE4D6]' : 'border-[#2A2A2C] bg-[#121214]'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={handleAddLevel}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-sm text-xs font-medium border transition-colors cursor-pointer ${
-                  isLight
-                    ? 'border-[#CDC5B4] bg-[#FAF7F0] text-[#1C1917] hover:bg-[#EAE4D6] shadow-2xs'
-                    : 'border-[#333338] bg-[#1C1C20] text-white/80 hover:bg-[#25252A] hover:text-white'
-                }`}
-              >
-                <Plus size={13} className="text-emerald-500" />
-                <span>+ 添加分级</span>
-              </button>
-
-              <div className={`text-xs font-mono ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>
-                当前共 <strong className={isLight ? 'text-[#1C1917]' : 'text-white/80'}>{levels.length}</strong> 个分级
-              </div>
-            </div>
+            <div className="col-span-2 text-center">颜色</div>
+            <div className="col-span-4 pl-1">分级名称</div>
+            <div className="col-span-4 text-center">分级阈值</div>
+            <div className="col-span-2 text-center">操作</div>
           </div>
 
-          {/* 底部操作栏 */}
+          {/* 分级行列表 */}
           <div
-            className={`pt-3 flex items-center justify-between gap-4 border-t ${
-              isLight ? 'border-[#CDC5B4]' : 'border-[#262629]'
+            className={`divide-y max-h-[320px] overflow-y-auto custom-scrollbar ${
+              isLight ? 'divide-[#E4E3DE]' : 'divide-[#262629]/60'
             }`}
           >
-            {/* 左侧：最大航程上限: [ 100 ] km 输入项 */}
-            <div className={`flex items-center gap-1.5 text-xs font-sans ${isLight ? 'text-[#44403C]' : 'text-white/70'}`}>
+            {levels.map((level, idx) => {
+              const isBase = idx === 0;
+
+              return (
+                <div
+                  key={level.id || `lvl-${idx}`}
+                  className={`grid grid-cols-12 items-center px-2 py-2.5 transition-colors ${
+                    isLight
+                      ? 'hover:bg-[#ECEBE7]/50 border-b border-[#E4E3DE] last:border-b-0'
+                      : 'hover:bg-white/[0.03] border-b border-[#222225] last:border-b-0'
+                  }`}
+                >
+                  {/* 颜色色块：点击调出色板选色 */}
+                  <div className="col-span-2 flex items-center justify-center">
+                    <div
+                      className="w-8 h-6 rounded-md shadow-xs border border-white/20 transition-all hover:scale-105 active:scale-95 cursor-pointer relative overflow-hidden group"
+                      style={{ backgroundColor: level.color }}
+                      title="点击选择颜色"
+                    >
+                      <input
+                        type="color"
+                        value={level.color}
+                        onChange={(e) => handleLevelColorChange(idx, e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* 分级名称 */}
+                  <div className="col-span-4 pr-2">
+                    <input
+                      type="text"
+                      value={level.name}
+                      onChange={(e) => handleLevelNameChange(idx, e.target.value)}
+                      style={{ color: level.color }}
+                      className={`w-full px-2.5 py-1 text-xs font-bold rounded-sm border focus:outline-none transition-colors ${
+                        isLight
+                          ? 'bg-[#FAFAF8] border-[#D5D3CE] focus:border-[#71717A] text-[#18181B]'
+                          : 'bg-[#18181B] border-[#2A2A2C] focus:border-white/30'
+                      }`}
+                      placeholder="分级名称"
+                    />
+                  </div>
+
+                  {/* 分级阈值 */}
+                  <div className="col-span-4 flex items-center justify-center gap-1.5">
+                    {isBase ? (
+                      <div
+                        className={`font-mono font-bold text-xs px-3 py-1 rounded-sm text-center ${
+                          isLight ? 'bg-[#ECEBE7] text-[#71717A]' : 'bg-white/5 text-white/50'
+                        }`}
+                      >
+                        {levels.length > 1 ? `< ${levels[1].minThreshold}` : '≥ 0'}
+                      </div>
+                    ) : (
+                      <>
+                        <span className={`text-xs font-bold ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>
+                          &ge;
+                        </span>
+                        <input
+                          type="number"
+                          step={algorithm.maxVal <= 10 ? "0.1" : "1"}
+                          value={level.minThreshold}
+                          onChange={(e) => handleLevelThresholdChange(idx, parseFloat(e.target.value) || 0)}
+                          className={`w-20 font-mono font-bold text-center px-1.5 py-1 text-xs rounded-sm border focus:outline-none transition-colors ${
+                            isLight
+                              ? 'bg-[#FAFAF8] border-[#D5D3CE] text-[#18181B] focus:border-[#71717A]'
+                              : 'bg-[#18181B] border-[#2A2A2C] text-white focus:border-white/30'
+                          }`}
+                        />
+                      </>
+                    )}
+                  </div>
+
+                  {/* 操作列 */}
+                  <div className="col-span-2 flex items-center justify-center">
+                    {!isBase ? (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLevel(idx)}
+                        className={`p-1.5 rounded-sm transition-colors cursor-pointer ${
+                          isLight
+                            ? 'text-[#71717A] hover:text-red-600 hover:bg-red-50'
+                            : 'text-white/35 hover:text-red-400 hover:bg-red-500/10'
+                        }`}
+                        title="删除该分级"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    ) : (
+                      <div className="w-5 h-5" />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* 增级按钮与统计行：直接平铺在列表下方，无嵌套边框 */}
+          <div className="pt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={handleAddLevel}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium border transition-colors cursor-pointer ${
+                isLight
+                  ? 'border-[#D5D3CE] bg-[#ECEBE7] text-[#18181B] hover:bg-[#E2E0DB] shadow-2xs'
+                  : 'border-[#333338] bg-[#1C1C20] text-white/80 hover:bg-[#25252A] hover:text-white'
+              }`}
+            >
+              <Plus size={13} className="text-emerald-500" />
+              <span>+ 添加分级</span>
+            </button>
+
+            <div className={`text-xs font-mono ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>
+              当前共 <strong className={isLight ? 'text-[#18181B]' : 'text-white/80'}>{levels.length}</strong> 个分级
+            </div>
+          </div>
+        </div>
+
+        {/* 底部操作栏 */}
+        <div
+          className={`px-5 py-3.5 flex items-center justify-between gap-4 border-t ${
+            isLight ? 'border-[#D5D3CE] bg-[#ECEBE7]/60' : 'border-[#262629] bg-[#17171A]'
+          }`}
+        >
+          {/* 左侧：最大航程上限: [ 100 ] km 输入项（仅在非颠簸算法时提供） */}
+          {algorithm.category !== 'turbulence' ? (
+            <div className={`flex items-center gap-1.5 text-xs font-sans ${isLight ? 'text-[#3F3F46]' : 'text-white/70'}`}>
               <span>最大航程上限:</span>
               <div
                 className={`flex items-center border rounded-sm px-1.5 py-0.5 ${
-                  isLight ? 'bg-[#FAF7F0] border-[#CDC5B4]' : 'bg-[#0E0E10] border-[#2A2A2C]'
+                  isLight ? 'bg-[#FAFAF8] border-[#D5D3CE]' : 'bg-[#0E0E10] border-[#2A2A2C]'
                 }`}
               >
                 <span className="text-[11px] opacity-40 mr-1">[</span>
@@ -392,41 +448,41 @@ export default function IcingConfigModal({
                   value={maxDistanceLimit}
                   onChange={(e) => setMaxDistanceLimit(Math.max(1, parseInt(e.target.value) || 100))}
                   className={`w-12 text-center font-bold font-mono text-xs focus:outline-none bg-transparent ${
-                    isLight ? 'text-[#1C1917]' : 'text-white'
+                    isLight ? 'text-[#18181B]' : 'text-white'
                   }`}
                 />
                 <span className="text-[11px] opacity-40 ml-1">]</span>
               </div>
               <span className="font-mono">km</span>
             </div>
+          ) : <div />}
 
-            {/* 右侧：⟳ 重置 与高对比白底黑字 ✓ 保存并应用 按钮 */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleResetToDefault}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors cursor-pointer ${
-                  isLight
-                    ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#44403C] hover:bg-[#DDD5C5] hover:text-[#1C1917]'
-                    : 'bg-[#202024] border-[#333338] text-white/80 hover:bg-[#28282D] hover:text-white'
-                }`}
-              >
-                <RotateCcw size={12} />
-                <span>重置</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAndApply}
-                className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-sm transition-colors shadow-md cursor-pointer ${
-                  isLight
-                    ? 'bg-[#1C1917] text-[#FAF7F0] hover:bg-[#292524]'
-                    : 'bg-white text-black hover:bg-neutral-200'
-                }`}
-              >
-                <Check size={13} className="stroke-[3]" />
-                <span>保存并应用</span>
-              </button>
-            </div>
+          {/* 右侧：⟳ 重置 与高对比白底黑字 ✓ 保存并应用 按钮 */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetToDefault}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-sm border transition-colors cursor-pointer ${
+                isLight
+                  ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#3F3F46] hover:bg-[#E2E0DB] hover:text-[#18181B]'
+                  : 'bg-[#202024] border-[#333338] text-white/80 hover:bg-[#28282D] hover:text-white'
+              }`}
+            >
+              <RotateCcw size={12} />
+              <span>重置</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAndApply}
+              className={`flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold rounded-sm transition-colors shadow-md cursor-pointer ${
+                isLight
+                  ? 'bg-[#18181B] text-[#FAFAF8] hover:bg-[#27272A]'
+                  : 'bg-white text-black hover:bg-neutral-200'
+              }`}
+            >
+              <Check size={13} className="stroke-[3]" />
+              <span>保存并应用</span>
+            </button>
           </div>
         </div>
       </div>

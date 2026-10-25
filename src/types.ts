@@ -24,18 +24,28 @@ export interface FlightDataPoint {
   maxDistance: number; // calculated max flyable distance in km
 }
 
-export type AlgorithmType = 'ordinary' | 'ml' | 'sensor';
+export type AlgorithmType = 'ordinary' | 'ml' | 'sensor' | 'turbulence';
+
+export interface InputParamDef {
+  symbol: string;
+  name: string;
+  desc?: string;
+  unit?: string;
+}
 
 export interface IcingAlgorithmDef {
   id: string;
   name: string;
-  paramName: string; // 输出积冰参量完整名称
-  paramSymbol?: string; // 参量代号 (如 IC, H, diff, I, ICR_XGB, ICR_IDF)
+  category?: 'icing' | 'turbulence';
+  paramName: string; // 输出参量完整名称
+  paramSymbol?: string; // 参量代号
+  inputParams?: InputParamDef[]; // 输入物理参量与说明
   type: AlgorithmType;
   unit: string;
   minVal: number;
   maxVal: number;
-  thresholdDesc: string; // 用户指定的默认阈值规则说明
+  thresholdDesc: string; // 默认阈值规则说明
+  hasDefaultThresholds?: boolean;
   defaultThresholds: {
     light: number;
     lightModerate?: number;

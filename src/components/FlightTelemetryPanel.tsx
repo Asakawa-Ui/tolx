@@ -234,69 +234,69 @@ export default function FlightTelemetryPanel({
         
         {/* Card 1: Altitude */}
         <div className={`border rounded-sm p-4 relative overflow-hidden group transition-colors duration-200 ${
-          isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+          isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
         }`}>
-          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#CDC5B4]' : 'text-white/15'}`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#D5D3CE]' : 'text-white/15'}`}>
             <TrendingUp size={24} />
           </div>
-          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>当前飞行高度 (ALT)</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>当前飞行高度 (ALT)</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-[#0284C7]' : 'text-[#00E5FF]'}`}>
               {currentPoint?.altitude || '---'}
             </span>
-            <span className={`text-[12px] font-mono ${isLight ? 'text-[#A8A29E]' : 'text-white/40'}`}>米 (m)</span>
+            <span className={`text-[12px] font-mono ${isLight ? 'text-[#A1A1AA]' : 'text-white/40'}`}>米 (m)</span>
           </div>
         </div>
 
         {/* Card 2: Ground Speed (航速) & True Airspeed (真空速) */}
         <div className={`border rounded-sm p-4 relative overflow-hidden transition-colors duration-200 ${
-          isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+          isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
         }`}>
-          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#CDC5B4]' : 'text-white/15'}`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#D5D3CE]' : 'text-white/15'}`}>
             <Gauge size={24} />
           </div>
-          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>当前航速 (GS) / 真空速</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>当前航速 (GS) / 真空速</span>
           <div className="flex items-baseline gap-1.5 mt-2">
             <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-[#16A34A]' : 'text-[#34C759]'}`}>
               {currentPoint?.groundSpeed || currentPoint?.speed || '---'}
             </span>
-            <span className={`text-[12px] font-mono ${isLight ? 'text-[#A8A29E]' : 'text-white/40'}`}>km/h</span>
+            <span className={`text-[12px] font-mono ${isLight ? 'text-[#A1A1AA]' : 'text-white/40'}`}>km/h</span>
           </div>
-          <div className={`mt-2 text-[12px] font-mono flex items-center ${isLight ? 'text-[#78716C]' : 'text-white/50'}`}>
+          <div className={`mt-2 text-[12px] font-mono flex items-center ${isLight ? 'text-[#71717A]' : 'text-white/50'}`}>
             <span>真空速(TAS): {currentPoint?.speed || '---'} km/h</span>
           </div>
         </div>
 
         {/* Card 3: GPS Coordinates */}
         <div className={`border rounded-sm p-4 relative overflow-hidden col-span-1 transition-colors duration-200 ${
-          isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+          isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
         }`}>
-          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#CDC5B4]' : 'text-white/15'}`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#D5D3CE]' : 'text-white/15'}`}>
             <MapPin size={24} />
           </div>
-          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>GIS 定位坐标 (GNSS)</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>GIS 定位坐标 (GNSS)</span>
           <div className="mt-2 space-y-1">
             <div className="flex justify-between items-center text-[14px] font-mono">
-              <span className={isLight ? 'text-[#A8A29E]' : 'text-white/40'}>纬度 LAT:</span>
-              <span className={`font-bold ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>{currentPoint?.latitude || '---'} °N</span>
+              <span className={isLight ? 'text-[#A1A1AA]' : 'text-white/40'}>纬度 LAT:</span>
+              <span className={`font-bold ${isLight ? 'text-[#18181B]' : 'text-white'}`}>{currentPoint?.latitude || '---'} °N</span>
             </div>
             <div className="flex justify-between items-center text-[14px] font-mono">
-              <span className={isLight ? 'text-[#A8A29E]' : 'text-white/40'}>经度 LON:</span>
-              <span className={`font-bold ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>{currentPoint?.longitude || '---'} °E</span>
+              <span className={isLight ? 'text-[#A1A1AA]' : 'text-white/40'}>经度 LON:</span>
+              <span className={`font-bold ${isLight ? 'text-[#18181B]' : 'text-white'}`}>{currentPoint?.longitude || '---'} °E</span>
             </div>
           </div>
         </div>
 
         {/* Card 4: Compass Heading */}
         <div className={`border rounded-sm p-4 relative overflow-hidden transition-colors duration-200 ${
-          isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
+          isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] shadow-xs' : 'bg-[#1A1A1C] border-[#2A2A2C]'
         }`}>
-          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#CDC5B4]' : 'text-white/15'}`}>
+          <div className={`absolute top-2 right-2 ${isLight ? 'text-[#D5D3CE]' : 'text-white/15'}`}>
             <Compass size={24} />
           </div>
-          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>磁航向 (HDG)</span>
+          <span className={`text-[12px] font-mono uppercase font-bold tracking-wider ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>磁航向 (HDG)</span>
           <div className="flex items-baseline gap-1.5 mt-2">
-            <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-[#1C1917]' : 'text-white'}`}>
+            <span className={`text-[28px] font-mono font-black tracking-tight leading-none ${isLight ? 'text-[#18181B]' : 'text-white'}`}>
               {currentPoint?.heading || '0'}°
             </span>
           </div>
@@ -306,11 +306,11 @@ export default function FlightTelemetryPanel({
 
       {/* 2. Interactive Charts Section - Sized consistently to the top frame (~240px SVG), space below cleanly open */}
       <div className={`border rounded-sm p-3.5 flex flex-col justify-between shrink-0 transition-colors duration-200 ${
-        isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] shadow-xs' : 'bg-[#151518] border-[#2A2A2C]'
+        isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] shadow-xs' : 'bg-[#151518] border-[#2A2A2C]'
       }`}>
         
         {/* Chart Header - Clean Legends */}
-        <div className={`flex items-center justify-between pb-2 shrink-0 border-b ${isLight ? 'border-[#DDD7C8]' : 'border-white/5'}`}>
+        <div className={`flex items-center justify-between pb-2 shrink-0 border-b ${isLight ? 'border-[#E4E3DE]' : 'border-white/5'}`}>
           <div className="flex items-center gap-2.5 text-[12px] font-mono flex-wrap">
             {/* Legend 1: Altitude */}
             <button
@@ -318,7 +318,7 @@ export default function FlightTelemetryPanel({
               className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
                 visibleCurves.altitude
                   ? (isLight ? 'bg-sky-100/80 border-sky-400 text-sky-950 shadow-xs' : 'bg-cyan-950/30 border-cyan-500/40 text-cyan-300')
-                  : (isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#A8A29E] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+                  : (isLight ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#A1A1AA] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
               }`}
               title="点击切换显示/隐藏高度曲线"
             >
@@ -332,7 +332,7 @@ export default function FlightTelemetryPanel({
               className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
                 visibleCurves.groundSpeed
                   ? (isLight ? 'bg-emerald-100/80 border-emerald-400 text-emerald-950 shadow-xs' : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-300')
-                  : (isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#A8A29E] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+                  : (isLight ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#A1A1AA] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
               }`}
               title="点击切换显示/隐藏航速曲线"
             >
@@ -346,7 +346,7 @@ export default function FlightTelemetryPanel({
               className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
                 visibleCurves.temperature
                   ? (isLight ? 'bg-amber-100/80 border-amber-400 text-amber-950 shadow-xs' : 'bg-amber-950/30 border-amber-500/40 text-amber-300')
-                  : (isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#A8A29E] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+                  : (isLight ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#A1A1AA] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
               }`}
               title="点击切换显示/隐藏气温曲线"
             >
@@ -360,7 +360,7 @@ export default function FlightTelemetryPanel({
               className={`flex items-center gap-2 px-3 py-1 rounded-sm cursor-pointer transition-all border ${
                 visibleCurves.humidity
                   ? (isLight ? 'bg-purple-100/80 border-purple-400 text-purple-950 shadow-xs' : 'bg-purple-950/30 border-purple-500/40 text-purple-300')
-                  : (isLight ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#A8A29E] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
+                  : (isLight ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#A1A1AA] opacity-60 line-through' : 'bg-[#18181B] border-white/5 text-white/30 opacity-50 line-through')
               }`}
               title="点击切换显示/隐藏湿度曲线"
             >
@@ -370,7 +370,7 @@ export default function FlightTelemetryPanel({
           </div>
 
           {/* Right: Quick Hint */}
-          <span className={`text-[11px] font-mono shrink-0 hidden sm:inline ${isLight ? 'text-[#78716C]' : 'text-white/30'}`}>
+          <span className={`text-[11px] font-mono shrink-0 hidden sm:inline ${isLight ? 'text-[#71717A]' : 'text-white/30'}`}>
             (支持悬停检视与点击定位)
           </span>
         </div>
@@ -393,8 +393,8 @@ export default function FlightTelemetryPanel({
               y={paddingTop}
               width={innerWidth}
               height={innerHeight}
-              fill={isLight ? "#F2EFE8" : "#101012"}
-              stroke={isLight ? "#CDC5B4" : "#26262A"}
+              fill={isLight ? "#F2F1EE" : "#101012"}
+              stroke={isLight ? "#D5D3CE" : "#26262A"}
               strokeWidth={1}
               rx={2}
             />
@@ -436,7 +436,7 @@ export default function FlightTelemetryPanel({
                     y1={gridY}
                     x2={width - paddingRight}
                     y2={gridY}
-                    stroke={isLight ? "#DDD7C8" : "#202024"}
+                    stroke={isLight ? "#E4E3DE" : "#202024"}
                     strokeWidth={1}
                     strokeDasharray={ratio === 0 || ratio === 1 ? undefined : "2,2"}
                   />
@@ -646,17 +646,17 @@ export default function FlightTelemetryPanel({
                     <rect
                       width={badgeWidth}
                       height={badgeHeight}
-                      fill={isLight ? "#FAF7F0" : "#141418"}
-                      stroke={isLight ? "#CDC5B4" : "#2E2E34"}
+                      fill={isLight ? "#FAFAF8" : "#141418"}
+                      stroke={isLight ? "#D5D3CE" : "#2E2E34"}
                       strokeWidth={1}
                       rx={3}
                       className={isLight ? "shadow-md" : "shadow-xl"}
                       opacity={0.96}
                     />
-                    <text x={10} y={16} fill={isLight ? "#1C1917" : "#FFFFFF"} fontSize="11" fontFamily="ui-monospace, monospace" fontWeight="bold">
+                    <text x={10} y={16} fill={isLight ? "#18181B" : "#FFFFFF"} fontSize="11" fontFamily="ui-monospace, monospace" fontWeight="bold">
                       时刻: {hoverPoint.time}
                     </text>
-                    <line x1={8} y1={22} x2={badgeWidth - 8} y2={22} stroke={isLight ? "#DDD7C8" : "#26262B"} strokeWidth={1} />
+                    <line x1={8} y1={22} x2={badgeWidth - 8} y2={22} stroke={isLight ? "#E4E3DE" : "#26262B"} strokeWidth={1} />
                     <text x={10} y={36} fill={isLight ? "#0284C7" : "#00E5FF"} fontSize="11" fontFamily="ui-monospace, monospace">
                       高度: {(hoverPoint.altitude / 1000).toFixed(2)} km
                     </text>
@@ -680,7 +680,7 @@ export default function FlightTelemetryPanel({
               y1={height - paddingBottom}
               x2={width - paddingRight}
               y2={height - paddingBottom}
-              stroke={isLight ? "#CDC5B4" : "#26262A"}
+              stroke={isLight ? "#D5D3CE" : "#26262A"}
               strokeWidth={1}
             />
 
@@ -707,7 +707,7 @@ export default function FlightTelemetryPanel({
                   x={adjustedX}
                   y={height - 9}
                   textAnchor={anchor}
-                  fill={isLight ? "#78716C" : "#8E8E93"}
+                  fill={isLight ? "#71717A" : "#8E8E93"}
                   fontSize="11"
                   fontFamily="ui-monospace, monospace"
                 >

@@ -4,6 +4,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'ic_index',
     name: 'IC指数',
+    category: 'icing',
     paramName: 'IC 指数',
     paramSymbol: 'IC',
     type: 'ordinary',
@@ -17,6 +18,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'ic_improved',
     name: 'IC改进',
+    category: 'icing',
     paramName: '改进 IC 指数',
     paramSymbol: 'H',
     type: 'ordinary',
@@ -30,6 +32,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'temp_frost',
     name: '假霜点温度',
+    category: 'icing',
     paramName: '假霜点判别量',
     paramSymbol: 'diff',
     type: 'ordinary',
@@ -43,6 +46,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'icing_index',
     name: '积冰指数',
+    category: 'icing',
     paramName: 'LWC 积冰指数',
     paramSymbol: 'I',
     type: 'ordinary',
@@ -56,6 +60,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'xgb',
     name: 'XGB',
+    category: 'icing',
     paramName: 'XGB 预测积冰速率',
     paramSymbol: 'ICR_XGB',
     type: 'ml',
@@ -69,6 +74,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'lgb',
     name: 'LGB',
+    category: 'icing',
     paramName: 'LightGBM 预测积冰速率',
     paramSymbol: 'ICR_LGB',
     type: 'ml',
@@ -82,6 +88,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'catb',
     name: 'CatB',
+    category: 'icing',
     paramName: 'CatBoost 预测积冰速率',
     paramSymbol: 'ICR_CatB',
     type: 'ml',
@@ -95,6 +102,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'rf',
     name: 'RF',
+    category: 'icing',
     paramName: 'Random Forest 预测积冰速率',
     paramSymbol: 'ICR_RF',
     type: 'ml',
@@ -108,6 +116,7 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
   {
     id: 'probe',
     name: '积冰探头',
+    category: 'icing',
     paramName: '积冰质量速率',
     paramSymbol: 'ICR_IDF',
     type: 'sensor',
@@ -119,6 +128,87 @@ export const ALGORITHMS: IcingAlgorithmDef[] = [
     levelLabels: { none: '无积冰', light: '轻度积冰', moderate: '中度积冰', severe: '重度积冰' }
   }
 ];
+
+export const TURBULENCE_ALGORITHMS: IcingAlgorithmDef[] = [
+  {
+    id: 'ELLROD2',
+    name: 'Ellrod2 指数',
+    category: 'turbulence',
+    paramName: 'Ellrod2 指数',
+    paramSymbol: 'Ellrod2',
+    inputParams: [
+      { symbol: 'Sv', name: '垂直风切变（/s）' },
+      { symbol: 'D_EF', name: '沿航迹水平风速梯度合成量（/s）' }
+    ],
+    type: 'turbulence',
+    unit: '×10⁻⁷ s⁻²',
+    minVal: 0,
+    maxVal: 40,
+    thresholdDesc: '默认阈值: ≥ 0',
+    hasDefaultThresholds: false,
+    defaultThresholds: { light: 0, moderate: 0, severe: 0 },
+    levelLabels: { none: '无', light: '轻度颠簸', moderate: '中度颠簸', severe: '重度颠簸' }
+  },
+  {
+    id: 'MOS',
+    name: 'MOS 指数',
+    category: 'turbulence',
+    paramName: 'MOS 指数',
+    paramSymbol: 'MOS',
+    inputParams: [
+      { symbol: 'V', name: '水平风速大小（m/s）' },
+      { symbol: 'D_EF', name: '沿航迹水平风速梯度合成量（/s）' }
+    ],
+    type: 'turbulence',
+    unit: '',
+    minVal: 0,
+    maxVal: 30,
+    thresholdDesc: '默认阈值: ≥ 0',
+    hasDefaultThresholds: false,
+    defaultThresholds: { light: 0, moderate: 0, severe: 0 },
+    levelLabels: { none: '无', light: '轻度颠簸', moderate: '中度颠簸', severe: '重度颠簸' }
+  },
+  {
+    id: 'HTG',
+    name: 'HTG 指数',
+    category: 'turbulence',
+    paramName: 'HTG 指数',
+    paramSymbol: 'HTG',
+    inputParams: [
+      { symbol: 'dT_ds', name: '沿航迹温度梯度（℃/m）' }
+    ],
+    type: 'turbulence',
+    unit: '℃/km',
+    minVal: 0,
+    maxVal: 15,
+    thresholdDesc: '默认阈值: ≥ 0',
+    hasDefaultThresholds: false,
+    defaultThresholds: { light: 0, moderate: 0, severe: 0 },
+    levelLabels: { none: '无', light: '轻度颠簸', moderate: '中度颠簸', severe: '重度颠簸' }
+  },
+  {
+    id: 'P_INDEX',
+    name: 'P 指数',
+    category: 'turbulence',
+    paramName: 'P 指数',
+    paramSymbol: 'P',
+    inputParams: [
+      { symbol: 'du_dz', name: '北向风速垂直梯度（/s）' },
+      { symbol: 'dT_ds', name: '沿航迹温度梯度（℃/m）' },
+      { symbol: 'du_ds', name: '沿航迹北向风速梯度（/s）' }
+    ],
+    type: 'turbulence',
+    unit: '',
+    minVal: 0,
+    maxVal: 40,
+    thresholdDesc: '默认阈值: ≥ 0',
+    hasDefaultThresholds: false,
+    defaultThresholds: { light: 0, moderate: 0, severe: 0 },
+    levelLabels: { none: '无', light: '轻度颠簸', moderate: '中度颠簸', severe: '重度颠簸' }
+  }
+];
+
+export const ALL_ALGORITHMS: IcingAlgorithmDef[] = [...ALGORITHMS, ...TURBULENCE_ALGORITHMS];
 
 export function evaluateIcingRisk(
   algoId: string,
@@ -154,17 +244,17 @@ export function evaluateIcingRisk(
     return { level: 'None', label: '无积冰' };
   }
 
-  // Default algorithms (ic_index, ic_improved, xgb, lgb, catb, rf, probe)
-  if (value >= thresholds.severe) {
-    return { level: 'Severe', label: '重度积冰' };
+  // Turbulence or default algorithms: only trigger if threshold > 0
+  if (thresholds.severe > 0 && value >= thresholds.severe) {
+    return { level: 'Severe', label: '重度风险' };
   }
-  if (value >= thresholds.moderate) {
-    return { level: 'Moderate', label: '中度积冰' };
+  if (thresholds.moderate > 0 && value >= thresholds.moderate) {
+    return { level: 'Moderate', label: '中度风险' };
   }
-  if (value >= thresholds.light) {
-    return { level: 'Light', label: '轻度积冰' };
+  if (thresholds.light > 0 && value >= thresholds.light) {
+    return { level: 'Light', label: '轻度风险' };
   }
-  return { level: 'None', label: '无积冰' };
+  return { level: 'None', label: '正常监测' };
 }
 
 // Generate flight path from Shanghai Pudong (31.14N, 121.80E) to Beijing Capital (40.08N, 116.58E)
@@ -293,6 +383,7 @@ export function generateFlightData(
 
     const algorithms: Record<string, AlgorithmOutput> = {};
 
+    // 1. Icing Algorithms
     ALGORITHMS.forEach(algo => {
       let value = 0;
       const noise = Math.sin(elapsedMinutes * 1.5) * 0.08;
@@ -365,6 +456,46 @@ export function generateFlightData(
         value,
         level: risk.level,
         levelLabel: risk.label
+      };
+    });
+
+    // 2. Turbulence Algorithms
+    TURBULENCE_ALGORITHMS.forEach(algo => {
+      let val = 0;
+      // High altitude clear air turbulence + frontal shear simulation
+      const altitudeFactor = Math.max(0.1, (altitude - 1500) / 6000);
+      const turbulenceWave = Math.sin(fraction * Math.PI * 5 + seedOffset);
+      const shearZone = Math.exp(-Math.pow((fraction - 0.46) / 0.16, 2));
+      const microJitter = Math.cos(elapsedMinutes * 2.2 + seedOffset) * 0.15;
+
+      if (algo.id === 'ELLROD2') {
+        // Ellrod2: Sv * D_EF. Range 0 - 35
+        val = (shearZone * 25 + Math.max(0, turbulenceWave) * 8 + microJitter * 4 + 2) * altitudeFactor;
+        val = Math.max(0.2, Math.min(38, val));
+      } else if (algo.id === 'MOS') {
+        // MOS: V & D_EF. Range 0 - 25
+        val = (shearZone * 18 + (speed / 440) * 4 + Math.abs(Math.sin(elapsedMinutes * 0.8)) * 3 + 1.5) * altitudeFactor;
+        val = Math.max(0.5, Math.min(26, val));
+      } else if (algo.id === 'HTG') {
+        // HTG: dT_ds. Range 0 - 12 (deg C/km)
+        val = (shearZone * 8.2 + Math.abs(tempJitter) * 3 + 0.8) * altitudeFactor;
+        val = Math.max(0.1, Math.min(12.5, val));
+      } else if (algo.id === 'P_INDEX') {
+        // P_INDEX: du_dz, dT_ds, du_ds. Range 0 - 32
+        val = (shearZone * 24 + Math.abs(turbulenceWave) * 6 + microJitter * 3 + 1.8) * altitudeFactor;
+        val = Math.max(0.3, Math.min(35, val));
+      }
+
+      val = Math.round(val * 10) / 10;
+
+      algorithms[algo.id] = {
+        algorithmId: algo.id,
+        algorithmName: algo.name,
+        paramName: algo.paramName,
+        paramSymbol: algo.paramSymbol,
+        value: val,
+        level: 'None',
+        levelLabel: '正常监测'
       };
     });
 

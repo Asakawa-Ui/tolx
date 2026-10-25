@@ -42,8 +42,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body.classList.add('theme-light', 'light');
       body.classList.remove('theme-dark', 'dark');
       root.style.colorScheme = 'light';
-      body.style.backgroundColor = '#D6D0C4';
-      body.style.color = '#292524';
+      body.style.backgroundColor = '#DDDBD7';
+      body.style.color = '#27272A';
     } else {
       root.classList.add('theme-dark', 'dark');
       root.classList.remove('theme-light', 'light');

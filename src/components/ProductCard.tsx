@@ -116,11 +116,19 @@ export default function ProductCard({
       return { color: colorNone, label: algorithm.levelLabels?.none || '无积冰' };
     }
 
-    // Default algorithms (ic_index, ic_improved, xgb, lgb, catb, rf, probe)
-    if (val >= thSevere) return { color: colorSevere, label: algorithm.levelLabels?.severe || '重度积冰' };
-    if (val >= thModerate) return { color: colorModerate, label: algorithm.levelLabels?.moderate || '中度积冰' };
-    if (val >= thLight) return { color: colorLight, label: algorithm.levelLabels?.light || '轻度积冰' };
-    return { color: colorNone, label: algorithm.levelLabels?.none || '无积冰' };
+    // Default algorithms (ic_index, ic_improved, xgb, lgb, catb, rf, probe, turbulence)
+    const hasThresholds = (thSevere > 0 || thModerate > 0 || thLight > 0);
+    if (!hasThresholds && (!config.levels || config.levels.length === 0)) {
+      return {
+        color: isLight ? '#0284C7' : '#00E5FF',
+        label: '实时监测值'
+      };
+    }
+
+    if (thSevere > 0 && val >= thSevere) return { color: colorSevere, label: algorithm.levelLabels?.severe || '重度' };
+    if (thModerate > 0 && val >= thModerate) return { color: colorModerate, label: algorithm.levelLabels?.moderate || '中度' };
+    if (thLight > 0 && val >= thLight) return { color: colorLight, label: algorithm.levelLabels?.light || '轻度' };
+    return { color: colorNone, label: algorithm.levelLabels?.none || '正常' };
   };
 
   // Apply configs
@@ -177,28 +185,80 @@ export default function ProductCard({
     return visibleData;
   }, [visibleData, systemMode, currentIndex]);
 
-  // Auto-scaling Y-Axis domain based on the visible data range
-  const yDomain = useMemo(() => {
-    if (chartData.length === 0) return { min: algorithm.minVal, max: algorithm.maxVal };
-    const values = chartData.map(pt => pt.algorithms[algorithm.id]?.value ?? 0);
-    const minVal = Math.min(...values);
-    const maxVal = Math.max(...values);
-    
-    // Give some padding
-    const padding = (maxVal - minVal) * 0.1 || 1;
-    const computedMin = Math.max(algorithm.minVal, minVal - padding);
-    const computedMax = Math.min(algorithm.maxVal, maxVal + padding);
+  // Auto-scaling Y-Axis domain & clean multiples-of-5 integer ticks
+  const yScale = useMemo(() => {
+    const NICE_STEPS = [5, 10, 15, 20, 25, 30, 40, 50, 100];
+
+    let rawMin = algorithm.minVal;
+    let rawMax = algorithm.maxVal;
+
+    if (chartData.length > 0) {
+      const values = chartData.map(pt => pt.algorithms[algorithm.id]?.value ?? 0);
+      const dataMin = Math.min(...values);
+      const dataMax = Math.max(...values);
+      const span = Math.max(dataMax - dataMin, 1);
+      const pad = span * 0.06;
+
+      rawMin = algorithm.minVal >= 0 && dataMin < 10
+        ? 0
+        : Math.max(algorithm.minVal, dataMin - pad);
+      rawMax = Math.min(algorithm.maxVal, dataMax + pad);
+    }
+
+    let chosenStep = 5;
+    let niceMin = 0;
+    let niceMax = 10;
+
+    for (const step of NICE_STEPS) {
+      let cMin = Math.floor(rawMin / step) * step;
+      if (algorithm.minVal >= 0 && cMin < 0) cMin = 0;
+      let cMax = Math.ceil(rawMax / step) * step;
+
+      if (cMax <= cMin) {
+        cMax = cMin + step * 2;
+      } else if ((cMax - cMin) / step === 1) {
+        if (cMax + step <= algorithm.maxVal) {
+          cMax += step;
+        } else if (cMin - step >= algorithm.minVal) {
+          cMin -= step;
+        } else {
+          cMax += step;
+        }
+      }
+
+      const intervals = Math.round((cMax - cMin) / step);
+      if (intervals <= 4) {
+        chosenStep = step;
+        niceMin = cMin;
+        niceMax = cMax;
+        break;
+      }
+    }
+
+    const ticks: number[] = [];
+    for (let v = niceMin; v <= niceMax + chosenStep * 0.1; v += chosenStep) {
+      ticks.push(Math.round(v));
+    }
+
     return {
-      min: Math.round(computedMin * 10) / 10,
-      max: Math.round(computedMax * 10) / 10
+      min: niceMin,
+      max: niceMax,
+      ticks
     };
   }, [chartData, algorithm.id, algorithm.minVal, algorithm.maxVal]);
 
+  const yDomain = yScale;
+
   // Chart Dimensions
+  const isTurbulence = Boolean(
+    algorithm.category === 'turbulence' ||
+    algorithm.type === 'turbulence' ||
+    ['ELLROD2', 'MOS', 'HTG', 'P_INDEX', 'ellrod2', 'mos', 'htg', 'p_index'].includes(algorithm.id)
+  );
   const chartWidth = 500;
   const chartHeight = 140;
   const paddingLeft = 35;
-  const paddingRight = 110; // Increased to 110 to give redundant space on the right for maxDistance line projection
+  const paddingRight = isTurbulence ? 25 : 110;
   const paddingTop = 15;
   const paddingBottom = 20;
 
@@ -261,7 +321,7 @@ export default function ProductCard({
   }, [chartData, currentIndex]);
 
   const maxDistanceLineData = useMemo(() => {
-    if (!latestVisiblePt) return null;
+    if (isTurbulence || !latestVisiblePt) return null;
     
     const yVal = latestVisiblePt.algorithms[algorithm.id]?.value ?? 0;
     const startX = getXCoordFromDataIndex(latestVisiblePt.id);
@@ -300,7 +360,7 @@ export default function ProductCard({
       duration: flightTimeMinutes,
       capped: latestVisiblePt.maxDistance >= maxDistanceLimit
     };
-  }, [latestVisiblePt, chartData, algorithm.id, yDomain, maxDistanceLimit]);
+  }, [isTurbulence, latestVisiblePt, chartData, algorithm.id, yDomain, maxDistanceLimit]);
 
   // SVG Paths
   const linePathD = useMemo(() => {
@@ -313,10 +373,12 @@ export default function ProductCard({
 
   // Export functions
   const exportToCSV = () => {
-    const headers = ['航迹点ID', '时刻', '经度', '纬度', '高度(m)', '航速(km/h)', `${algorithm.name}输出值`, '积冰风险等级', '最大可航行距离(km)'];
+    const headers = isTurbulence
+      ? ['航迹点ID', '时刻', '经度', '纬度', '高度(m)', '航速(km/h)', `${algorithm.name}输出值`, '颠簸风险等级']
+      : ['航迹点ID', '时刻', '经度', '纬度', '高度(m)', '航速(km/h)', `${algorithm.name}输出值`, '积冰风险等级', '最大可航行距离(km)'];
     const rows = visibleData.map(pt => {
       const output = pt.algorithms[algorithm.id];
-      return [
+      const baseRow = [
         pt.id,
         pt.time,
         pt.longitude,
@@ -324,9 +386,12 @@ export default function ProductCard({
         pt.altitude,
         pt.speed,
         output?.value ?? 0,
-        output?.level ?? 'None',
-        pt.maxDistance
+        output?.level ?? 'None'
       ];
+      if (!isTurbulence) {
+        baseRow.push(pt.maxDistance);
+      }
+      return baseRow;
     });
 
     const csvContent = "data:text/csv;charset=utf-8," 
@@ -441,28 +506,25 @@ export default function ProductCard({
   return (
     <div
       ref={containerRef}
-      className={`border rounded-sm p-3.5 space-y-3 relative flex flex-col transition-all duration-200 ${
+      className={`border rounded-sm p-3.5 space-y-3 relative flex flex-col h-fit transition-all duration-200 ${
         isLight
-          ? (isMappedOnMap ? 'bg-[#FAF7F0] border-[#0284C7] shadow-md ring-2 ring-[#0284C7]/20' : 'bg-[#FAF7F0] border-[#D8D1C2] shadow-xs')
+          ? (isMappedOnMap ? 'bg-[#FAFAF8] border-[#0284C7] shadow-md ring-2 ring-[#0284C7]/20' : 'bg-[#FAFAF8] border-[#DFDDD8] shadow-xs')
           : (isMappedOnMap ? 'bg-[#121214] border-white shadow-lg' : 'bg-[#121214] border-[#2A2A2C]')
       }`}
       id={`product-card-${algorithm.id}`}
     >
       {/* Header info */}
-      <div className={`flex items-center justify-between pb-2 border-b ${isLight ? 'border-[#DDD7C8]' : 'border-[#2A2A2C]'}`}>
-        <div className="flex items-center gap-2">
-          <div className={`w-2 h-2 rounded-full ${isMappedOnMap ? 'bg-[#34C759]' : (isLight ? 'bg-[#A8A29E] animate-pulse' : 'bg-white/25 animate-pulse')}`}></div>
-          <h3 className={`text-[16px] font-sans font-bold flex items-center gap-1.5 uppercase ${isLight ? 'text-[#1C1917]' : 'text-[#E0E0E0]'}`}>
-            {algorithm.name}
-          </h3>
-        </div>
+      <div className={`flex items-center justify-between pb-2 border-b ${isLight ? 'border-[#E4E3DE]' : 'border-[#2A2A2C]'}`}>
+        <h3 className={`text-[16px] font-sans font-bold flex items-center gap-1.5 uppercase ${isLight ? 'text-[#18181B]' : 'text-[#E0E0E0]'}`}>
+          {algorithm.name}
+        </h3>
 
         {/* Header actions */}
         <div className="flex items-center gap-1">
           <button
             onClick={() => setChartMode(prev => prev === 'line' ? 'scatter' : 'line')}
             className={`p-1 border rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer ${
-              isLight ? 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#EAE4D6] border-[#D8D1C2]' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
+              isLight ? 'text-[#52525B] hover:text-[#18181B] hover:bg-[#ECEBE7] border-[#DFDDD8]' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
             }`}
             title="切换 折线图/散点图"
           >
@@ -473,7 +535,7 @@ export default function ProductCard({
           <button
             onClick={() => setShowConfig(true)}
             className={`p-1 border rounded-sm transition-colors text-[12px] flex items-center gap-1 cursor-pointer ${
-              isLight ? 'text-[#57534E] hover:text-[#1C1917] hover:bg-[#EAE4D6] border-[#D8D1C2]' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
+              isLight ? 'text-[#52525B] hover:text-[#18181B] hover:bg-[#ECEBE7] border-[#DFDDD8]' : 'text-white/50 hover:text-white hover:bg-white/10 border-[#2A2A2C]'
             }`}
             title="配置显示阈值与颜色"
           >
@@ -485,8 +547,8 @@ export default function ProductCard({
             onClick={onMapToTrajectory}
             className={`p-1 border text-[12px] flex items-center gap-1 rounded-sm transition-colors cursor-pointer ${
               isMappedOnMap 
-              ? (isLight ? 'bg-[#1C1917] border-[#1C1917] text-[#FAF7F0] font-bold shadow-xs' : 'bg-white border-white text-black font-bold shadow-sm')
-              : (isLight ? 'text-[#57534E] border-[#D8D1C2] hover:text-[#1C1917] hover:bg-[#EAE4D6]' : 'text-white/50 border-[#2A2A2C] hover:text-white hover:bg-white/10')
+              ? (isLight ? 'bg-[#18181B] border-[#18181B] text-[#FAFAF8] font-bold shadow-xs' : 'bg-white border-white text-black font-bold shadow-sm')
+              : (isLight ? 'text-[#52525B] border-[#DFDDD8] hover:text-[#18181B] hover:bg-[#ECEBE7]' : 'text-white/50 border-[#2A2A2C] hover:text-white hover:bg-white/10')
             }`}
             title="将该算法渲染到主飞行地图轨迹"
           >
@@ -512,7 +574,7 @@ export default function ProductCard({
 
       {/* Embedded Chart Body */}
       <div className={`relative border rounded-sm transition-colors duration-200 ${
-        isLight ? 'bg-[#F2EFE8] border-[#DDD7C8]' : 'bg-[#0A0A0B] border-[#2A2A2C]'
+        isLight ? 'bg-[#F2F1EE] border-[#E4E3DE]' : 'bg-[#0A0A0B] border-[#2A2A2C]'
       }`}>
         <svg
           id={`svg-chart-${algorithm.id}`}
@@ -525,11 +587,9 @@ export default function ProductCard({
         >
           {/* Chart Background Fills for Threshold Levels (Removed for transparent background) */}
 
-          {/* Gridlines */}
+          {/* Gridlines: strictly 1-to-1 with Y-axis labels, unified neutral color */}
           <g>
-            {/* Horizontal lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
-              const val = yDomain.min + f * (yDomain.max - yDomain.min);
+            {yScale.ticks.map((val, i) => {
               const y = getY(val);
               return (
                 <g key={`y-grid-${i}`}>
@@ -538,19 +598,19 @@ export default function ProductCard({
                     y1={y}
                     x2={chartWidth - paddingRight}
                     y2={y}
-                    stroke={isLight ? "#D5CEBF" : "#1A1A1C"}
-                    strokeWidth={0.5}
-                    strokeDasharray="2 4"
+                    stroke={isLight ? "#D4D3CE" : "#27272A"}
+                    strokeWidth={1}
+                    strokeDasharray="3 3"
                   />
                   <text
-                    x={paddingLeft - 5}
+                    x={paddingLeft - 6}
                     y={y + 4}
                     textAnchor="end"
-                    fill={isLight ? "#78716C" : "rgba(255, 255, 255, 0.4)"}
-                    fontSize={12}
+                    fill={isLight ? "#71717A" : "rgba(255, 255, 255, 0.45)"}
+                    fontSize={11}
                     fontFamily="monospace"
                   >
-                    {val.toFixed(1)}
+                    {Math.round(val)}
                   </text>
                 </g>
               );
@@ -558,26 +618,28 @@ export default function ProductCard({
           </g>
 
           {/* Vertical Separator & Range Projection Zone Shading */}
-          <g>
-            <line
-              x1={chartWidth - paddingRight}
-              y1={paddingTop}
-              x2={chartWidth - paddingRight}
-              y2={chartHeight - paddingBottom}
-              stroke={isLight ? "rgba(100, 116, 139, 0.3)" : "rgba(255, 255, 255, 0.15)"}
-              strokeWidth={1}
-              strokeDasharray="2 2"
-            />
-            {/* Shaded background for redundant projection zone */}
-            <rect
-              x={chartWidth - paddingRight}
-              y={paddingTop}
-              width={paddingRight}
-              height={innerHeight}
-              fill={isLight ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.02)"}
-              pointerEvents="none"
-            />
-          </g>
+          {!isTurbulence && maxDistanceLineData && (
+            <g>
+              <line
+                x1={chartWidth - paddingRight}
+                y1={paddingTop}
+                x2={chartWidth - paddingRight}
+                y2={chartHeight - paddingBottom}
+                stroke={isLight ? "rgba(100, 116, 139, 0.3)" : "rgba(255, 255, 255, 0.15)"}
+                strokeWidth={1}
+                strokeDasharray="2 2"
+              />
+              {/* Shaded background for redundant projection zone */}
+              <rect
+                x={chartWidth - paddingRight}
+                y={paddingTop}
+                width={paddingRight}
+                height={innerHeight}
+                fill={isLight ? "rgba(0, 0, 0, 0.03)" : "rgba(255, 255, 255, 0.02)"}
+                pointerEvents="none"
+              />
+            </g>
+          )}
 
           {/* Chart Core Lines / Dots */}
           {chartMode === 'line' ? (
@@ -625,65 +687,6 @@ export default function ProductCard({
               })}
             </g>
           )}
-
-          {/* Threshold marker indicators (Horizontal lines) */}
-          <g opacity={0.4}>
-            {config.levels && config.levels.length > 0 ? (
-              config.levels.filter(l => !l.isBase).map(l => (
-                <line
-                  key={`th-${l.id}`}
-                  x1={paddingLeft}
-                  y1={getY(l.minThreshold)}
-                  x2={chartWidth - paddingRight}
-                  y2={getY(l.minThreshold)}
-                  stroke={l.color}
-                  strokeWidth={1}
-                  strokeDasharray="1 3"
-                />
-              ))
-            ) : (
-              <>
-                <line
-                  x1={paddingLeft}
-                  y1={getY(thSevere)}
-                  x2={chartWidth - paddingRight}
-                  y2={getY(thSevere)}
-                  stroke={colorSevere}
-                  strokeWidth={1}
-                  strokeDasharray="1 3"
-                />
-                <line
-                  x1={paddingLeft}
-                  y1={getY(thModerate)}
-                  x2={chartWidth - paddingRight}
-                  y2={getY(thModerate)}
-                  stroke={colorModerate}
-                  strokeWidth={1}
-                  strokeDasharray="1 3"
-                />
-                {algorithm.defaultThresholds.lightModerate !== undefined && (
-                  <line
-                    x1={paddingLeft}
-                    y1={getY(thLightModerate)}
-                    x2={chartWidth - paddingRight}
-                    y2={getY(thLightModerate)}
-                    stroke={colorLightModerate}
-                    strokeWidth={1}
-                    strokeDasharray="1 3"
-                  />
-                )}
-                <line
-                  x1={paddingLeft}
-                  y1={getY(thLight)}
-                  x2={chartWidth - paddingRight}
-                  y2={getY(thLight)}
-                  stroke={colorLight}
-                  strokeWidth={1}
-                  strokeDasharray="1 3"
-                />
-              </>
-            )}
-          </g>
 
           {/* Synchronized Vertical Hover Line & Interactive Overlay */}
           {hoveredIndex !== null && (
@@ -738,7 +741,7 @@ export default function ProductCard({
           })()}
 
           {/* Maximum Flyable Distance projection Segment in Chart */}
-          {maxDistanceLineData && (
+          {!isTurbulence && maxDistanceLineData && (
             <g>
               {/* Horizontal projection line (solid line) */}
               <line
@@ -833,23 +836,22 @@ export default function ProductCard({
           const output = hoveredPt.algorithms[algorithm.id];
           if (!output) return null;
 
-          const { color, label } = getPointColorAndLabel(output.value);
+          const { color } = getPointColorAndLabel(output.value);
           const isLeftHalf = chartData.findIndex(p => p.id === hoveredIndex) < chartData.length / 2;
 
           return (
             <div
-              className={`absolute top-2 rounded-sm px-2 py-1 text-[12px] font-mono pointer-events-none z-10 border ${
-                isLight ? 'bg-[#FAF7F0]/95 border-[#CDC5B4] text-[#1C1917] shadow-md' : 'bg-[#1A1A1C]/95 border-[#2A2A2C] text-[#E0E0E0] shadow-lg'
+              className={`absolute top-2 rounded-sm px-2 py-1 text-[12px] font-mono pointer-events-none z-10 border leading-tight ${
+                isLight ? 'bg-[#FAFAF8]/95 border-[#D5D3CE] text-[#18181B] shadow-md' : 'bg-[#1A1A1C]/95 border-[#2A2A2C] text-[#E0E0E0] shadow-lg'
               }`}
               style={{
                 left: isLeftHalf ? 'auto' : '45px',
                 right: isLeftHalf ? '20px' : 'auto'
               }}
             >
-              <div className={`font-bold mb-0.5 ${isLight ? 'text-[#78716C]' : 'text-white/40'}`}>时刻: {hoveredPt.time}</div>
-              <div className="flex gap-2">
-                <span>数值: <strong className={isLight ? 'text-[#1C1917]' : 'text-white'}>{output.value} {algorithm.unit}</strong></span>
-                <span>级别: <strong style={{ color }}>{label}</strong></span>
+              <div className={isLight ? 'text-[#52525B]' : 'text-white/60'}>{hoveredPt.time}</div>
+              <div className="font-bold mt-0.5" style={{ color }}>
+                {output.value}{algorithm.unit ? ` ${algorithm.unit}` : ''}
               </div>
             </div>
           );
@@ -859,47 +861,57 @@ export default function ProductCard({
       {/* Footer controls: Legend and Export */}
       <div className="flex items-end justify-between text-[12px] font-mono pt-1">
         {/* Dynamic Legend */}
-        <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${isLight ? 'text-[#57534E]' : 'text-white/40'}`}>
+        <div className={`flex flex-wrap items-center gap-x-2.5 gap-y-1 ${isLight ? 'text-[#52525B]' : 'text-white/40'}`}>
           {config.levels && config.levels.length > 0 ? (
             config.levels.map((lvl) => (
               <div key={lvl.id} className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: lvl.color }}></span>
-                <span>{lvl.name.replace('积冰', '') || '无'}</span>
+                <span>{lvl.name.replace('积冰', '').replace('颠簸', '') || '无'}</span>
               </div>
             ))
-          ) : (
+          ) : (thSevere > 0 || thModerate > 0 || thLight > 0) ? (
             <>
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorNone }}></span>
-                <span>{(algorithm.levelLabels?.none || '无积冰').replace('积冰', '') || '无'}</span>
+                <span>{(algorithm.levelLabels?.none || '正常').replace('积冰', '').replace('颠簸', '') || '无'}</span>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLight }}></span>
-                <span>{(algorithm.levelLabels?.light || '轻度').replace('积冰', '')}</span>
+                <span>{(algorithm.levelLabels?.light || '轻度').replace('积冰', '').replace('颠簸', '')}</span>
               </div>
               {algorithm.defaultThresholds.lightModerate !== undefined && (
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorLightModerate }}></span>
-                  <span>{(algorithm.levelLabels?.lightModerate || '轻-中度').replace('积冰', '')}</span>
+                  <span>{(algorithm.levelLabels?.lightModerate || '轻-中度').replace('积冰', '').replace('颠簸', '')}</span>
                 </div>
               )}
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorModerate }}></span>
-                <span>{(algorithm.levelLabels?.moderate || '中度').replace('积冰', '')}</span>
+                <span>{(algorithm.levelLabels?.moderate || '中度').replace('积冰', '').replace('颠簸', '')}</span>
               </div>
               {algorithm.id !== 'temp_frost' && (
                 <div className="flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colorSevere }}></span>
-                  <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '')}</span>
+                  <span>{(algorithm.levelLabels?.severe || '重度').replace('积冰', '').replace('颠簸', '')}</span>
                 </div>
               )}
             </>
+          ) : isTurbulence ? (
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isLight ? '#0284C7' : '#00E5FF' }}></span>
+              <span>无</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 opacity-80">
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isLight ? '#0284C7' : '#00E5FF' }}></span>
+              <span>默认阈值: 暂无（可点击「配置参数」设定）</span>
+            </div>
           )}
-          {maxDistanceLineData && (
+          {!isTurbulence && maxDistanceLineData && (
             <div className={`flex items-center gap-1.5 font-bold border-l pl-2 ${
-              isLight ? 'text-[#44403C] border-[#CDC5B4]' : 'text-white/60 border-[#2A2A2C]'
+              isLight ? 'text-[#3F3F46] border-[#D5D3CE]' : 'text-white/60 border-[#2A2A2C]'
             }`}>
-              <svg className={`w-3.5 h-2.5 inline-block ${isLight ? 'text-[#44403C]' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
+              <svg className={`w-3.5 h-2.5 inline-block ${isLight ? 'text-[#3F3F46]' : 'text-white'}`} fill="none" stroke="currentColor" viewBox="0 0 14 10" strokeWidth="1.5">
                 <path d="M1 1 v8 M1 5 h10 M7 2 l4 3 l-4 3" />
               </svg>
               <span>最大航行距离 {maxDistanceLineData.capped ? `(≥${maxDistanceLimit}km)` : ''}</span>
@@ -913,7 +925,7 @@ export default function ProductCard({
             onClick={() => setShowExportMenu(prev => !prev)}
             className={`px-2 py-0.5 border rounded-sm transition-colors cursor-pointer flex items-center gap-1 text-[12px] ${
               isLight
-                ? 'bg-[#EAE4D6] border-[#CDC5B4] text-[#44403C] hover:text-[#1C1917] hover:bg-[#DDD5C5]'
+                ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#3F3F46] hover:text-[#18181B] hover:bg-[#E2E0DB]'
                 : 'bg-[#1A1A1C] border-[#2A2A2C] hover:text-white text-white/50 hover:bg-white/10'
             }`}
             title="导出数据或图表"
@@ -931,7 +943,7 @@ export default function ProductCard({
                 onClick={() => setShowExportMenu(false)}
               />
               <div className={`absolute right-0 bottom-full mb-1.5 w-32 rounded-sm shadow-xl z-20 overflow-hidden py-1 border ${
-                isLight ? 'bg-[#FAF7F0] border-[#CDC5B4] text-[#44403C]' : 'bg-[#1A1A1C] border-[#2C2C30] text-white/70'
+                isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] text-[#3F3F46]' : 'bg-[#1A1A1C] border-[#2C2C30] text-white/70'
               }`}>
                 <button
                   onClick={() => {
@@ -939,7 +951,7 @@ export default function ProductCard({
                     setShowExportMenu(false);
                   }}
                   className={`w-full text-left px-2.5 py-1.5 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px] ${
-                    isLight ? 'hover:bg-[#EAE4D6] hover:text-[#1C1917] text-[#44403C]' : 'hover:bg-white/5 hover:text-white text-white/70'
+                    isLight ? 'hover:bg-[#ECEBE7] hover:text-[#18181B] text-[#3F3F46]' : 'hover:bg-white/5 hover:text-white text-white/70'
                   }`}
                 >
                   <Download size={10} />
@@ -951,7 +963,7 @@ export default function ProductCard({
                     setShowExportMenu(false);
                   }}
                   className={`w-full text-left px-2.5 py-1.5 transition-colors flex items-center gap-1.5 cursor-pointer text-[12px] ${
-                    isLight ? 'hover:bg-[#EAE4D6] hover:text-[#1C1917] text-[#44403C]' : 'hover:bg-white/5 hover:text-white text-white/70'
+                    isLight ? 'hover:bg-[#ECEBE7] hover:text-[#18181B] text-[#3F3F46]' : 'hover:bg-white/5 hover:text-white text-white/70'
                   }`}
                 >
                   <Eye size={10} />
