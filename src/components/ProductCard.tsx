@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { FlightDataPoint, IcingAlgorithmDef, ProductConfig } from '../types';
 import { LineChart, BarChart2, Check, Download, MapPin, Eye, Sliders, Layers, RefreshCw, ChevronDown } from 'lucide-react';
 import { useTheme } from '../ThemeContext';
-import IcingConfigModal from './IcingConfigModal';
+import AlgorithmThresholdModal from './AlgorithmThresholdModal';
 
 interface ProductCardProps {
   key?: React.Key | string;
@@ -38,7 +38,7 @@ export default function ProductCard({
   const isLight = theme === 'light';
   const [chartMode, setChartMode] = useState<'line' | 'scatter'>('scatter');
   const [showConfig, setShowConfig] = useState<boolean>(false);
-  const [maxDistanceLimit, setMaxDistanceLimit] = useState<number>(100);
+  const [maxDistanceLimit, setMaxDistanceLimit] = useState<number>(800);
   const [showExportMenu, setShowExportMenu] = useState<boolean>(false);
 
   // Configuration forms
@@ -558,17 +558,13 @@ export default function ProductCard({
         </div>
       </div>
 
-      {/* 积冰监测配置界面（阈值与颜色配置） */}
-      <IcingConfigModal
+      {/* 阈值与颜色配置弹窗（统一组件） */}
+      <AlgorithmThresholdModal
         isOpen={showConfig}
         onClose={() => setShowConfig(false)}
         algorithm={algorithm}
         config={config}
-        maxDistanceLimit={maxDistanceLimit}
-        onSave={(newCfg, newMaxDist) => {
-          setMaxDistanceLimit(newMaxDist);
-          onChangeConfig(newCfg);
-        }}
+        onSave={(newCfg) => onChangeConfig(newCfg)}
         onReset={handleResetConfig}
       />
 
@@ -796,7 +792,7 @@ export default function ProductCard({
                       fontWeight="bold"
                       textAnchor="middle"
                     >
-                      {maxDistanceLineData.distance >= 100 ? "≥100km" : `${maxDistanceLineData.distance}km`}
+                      {maxDistanceLineData.distance >= 800 ? "≥800km" : `${maxDistanceLineData.distance}km`}
                     </text>
                   </g>
                 );

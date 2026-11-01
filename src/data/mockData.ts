@@ -500,12 +500,13 @@ export function generateFlightData(
     });
 
     // Compute max distance (km) inversely proportional to average icing intensity
-    let maxDistance = 120;
+    // Thresholds: 0 ≤ D_max < 80: 危险; 80 ≤ D_max < 200: 警戒; 200 ≤ D_max < 800: 提醒; D_max ≥ 800: 安全
+    let maxDistance = 850;
     if (inCloud) {
-      maxDistance = 100 - (cloudIntensity * 85);
+      maxDistance = 850 - (cloudIntensity * 820);
     }
-    maxDistance = Math.round(Math.max(12, maxDistance));
-    if (maxDistance > 100) maxDistance = 100;
+    maxDistance = Math.round(Math.max(15, maxDistance));
+    if (maxDistance > 800) maxDistance = 800;
 
     points.push({
       id: i,

@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { FlightDataPoint, ProductConfig } from '../types';
 import { ALGORITHMS, TURBULENCE_ALGORITHMS, ALL_ALGORITHMS, evaluateIcingRisk } from '../data/mockData';
-import { ZoomIn, ZoomOut, RotateCcw, Crosshair, HelpCircle, Activity, Clock, Play, Pause, ChevronRight, X } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, Crosshair, HelpCircle, Activity, Clock, Play, Pause, ChevronRight, ChevronUp, ChevronDown, X } from 'lucide-react';
 import { FlightSortie } from '../App';
 import { useTheme } from '../ThemeContext';
+import DateRangePicker from './DateRangePicker';
 
 interface FlightMapProps {
   flightData: FlightDataPoint[];
@@ -203,6 +204,7 @@ export default function FlightMap({
 
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [showGuide, setShowGuide] = useState<boolean>(true);
+  const [isPanelCollapsed, setIsPanelCollapsed] = useState<boolean>(false);
 
   // Clear any leftover session flag on mount so refresh always re-shows the guide
   useEffect(() => {
@@ -241,51 +243,6 @@ export default function FlightMap({
     return `${y}-${m}-${dd}`;
   });
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const [isCalendarOpen, setIsCalendarOpen] = useState<boolean>(false);
-  const [calendarYear, setCalendarYear] = useState<number>(2026);
-  const [calendarMonth, setCalendarMonth] = useState<number>(6); // 0-indexed, 6 is July
-  const [calendarView, setCalendarView] = useState<'days' | 'months' | 'years'>('days');
-  const [yearPageStart, setYearPageStart] = useState<number>(2021);
-
-  const handlePrevMonth = () => {
-    if (calendarMonth === 0) {
-      setCalendarMonth(11);
-      setCalendarYear(prev => prev - 1);
-    } else {
-      setCalendarMonth(prev => prev - 1);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (calendarMonth === 11) {
-      setCalendarMonth(0);
-      setCalendarYear(prev => prev + 1);
-    } else {
-      setCalendarMonth(prev => prev + 1);
-    }
-  };
-
-  const calendarDays = useMemo(() => {
-    const totalDays = new Date(calendarYear, calendarMonth + 1, 0).getDate();
-    const startOffset = new Date(calendarYear, calendarMonth, 1).getDay();
-    const days: { day: number | null; dateString: string }[] = [];
-    
-    // Fill offset with nulls
-    for (let i = 0; i < startOffset; i++) {
-      days.push({ day: null, dateString: '' });
-    }
-    
-    // Fill days
-    for (let d = 1; d <= totalDays; d++) {
-      const yearStr = calendarYear.toString();
-      const monthStr = (calendarMonth + 1).toString().padStart(2, '0');
-      const dayStr = d.toString().padStart(2, '0');
-      const dateString = `${yearStr}-${monthStr}-${dayStr}`;
-      days.push({ day: d, dateString });
-    }
-    
-    return days;
-  }, [calendarYear, calendarMonth]);
 
   const availableDates = useMemo(() => {
     const dates = flights.filter(f => !f.isLive).map(f => f.date);
@@ -504,8 +461,8 @@ export default function FlightMap({
   const perpX = Math.cos(headingRad);
   const perpY = Math.sin(headingRad);
 
-  const mapScaleDistance = 0.85; // scaling factor for pixels per km in map coordinates
-  const segmentLength = currentAircraft.maxDistance * mapScaleDistance;
+  const mapScaleDistance = 0.11; // scaling factor for pixels per km in map coordinates (0~800km maps to ~15~90px)
+  const segmentLength = Math.max(15, currentAircraft.maxDistance * mapScaleDistance);
   const maxDistancePos = {
     x: aircraftPos.x + dirX * segmentLength,
     y: aircraftPos.y + dirY * segmentLength
@@ -813,7 +770,7 @@ export default function FlightMap({
 
             {/* Maximum Flyable Segment Projection Line (积冰专用参量，颠簸算法无此参量) */}
             {!isTurbulenceMapped && flightData[Math.round(currentIndex)] && (() => {
-              const displayDistance = currentAircraft.maxDistance >= 100 ? "≥100km" : `${currentAircraft.maxDistance} km`;
+              const displayDistance = currentAircraft.maxDistance >= 800 ? "≥800km" : `${currentAircraft.maxDistance} km`;
               
               // Dynamically adapt decorators: compact in zoomed-out view, clear and proportional in zoomed-in view
               const invZoom = 1 / zoom;
@@ -1004,7 +961,7 @@ export default function FlightMap({
                   <div className="flex justify-between">
                     <span className={isLight ? "text-[#71717A]" : "text-white/40"}>最大航程:</span>
                     <span className={`font-bold font-mono ${isLight ? 'text-[#18181B]' : 'text-white'}`}>
-                      {currentAircraft.maxDistance >= 100 ? '≥100km' : `${currentAircraft.maxDistance} km`}
+                      {currentAircraft.maxDistance >= 800 ? '≥800km' : `${currentAircraft.maxDistance} km`}
                     </span>
                   </div>
                 )}
@@ -1052,376 +1009,177 @@ export default function FlightMap({
         <div className={`absolute top-3 right-3 z-10 w-[280px] rounded-sm p-3 shadow-xl font-mono text-xs select-none border transition-colors duration-200 ${
           isLight ? 'bg-[#FAFAF8]/95 border-[#D5D3CE] text-[#18181B]' : 'bg-[#121214]/95 border-[#2A2A2C] text-[#E0E0E0]'
         }`}>
-          {/* Mode Switch Tabs */}
-          <div className={`grid grid-cols-2 gap-1 p-1 border rounded-sm mb-3 ${
-            isLight ? 'bg-[#ECEBE7] border-[#D5D3CE]' : 'bg-black/40 border-[#2A2A2C]'
-          }`}>
-            <button
-              onClick={() => onToggleMode('live')}
-              className={`py-1.5 text-[11px] font-bold rounded-xs cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                systemMode === 'live'
-                  ? (isLight ? 'bg-[#FAFAF8] text-[#18181B] shadow-xs border border-[#D5D3CE] font-bold' : 'bg-[#2A2A2C] text-[#FF9F0A] border-white/5 shadow-xs font-bold')
-                  : (isLight ? 'text-[#71717A] hover:text-[#18181B]' : 'text-white/40 hover:text-white')
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse"></span>
-              实况
-            </button>
-            <button
-              onClick={() => onToggleMode('history')}
-              className={`py-1.5 text-[11px] font-bold rounded-xs cursor-pointer transition-all flex items-center justify-center gap-1 ${
-                systemMode === 'history'
-                  ? (isLight ? 'bg-[#FAFAF8] text-[#0284C7] shadow-xs border border-[#D5D3CE] font-bold' : 'bg-[#2A2A2C] text-[#0A84FF] border-white/5 shadow-xs font-bold')
-                  : (isLight ? 'text-[#71717A] hover:text-[#18181B]' : 'text-white/40 hover:text-white')
-              }`}
-            >
-              <Clock size={11} />
-              历史
-            </button>
-          </div>
-
-          {/* Sortie Selector */}
-          <div className="space-y-2">
-
-            {systemMode === 'live' ? (
-              <div className={`border p-2.5 rounded-sm flex items-center justify-start ${
-                isLight ? 'bg-[#ECEBE7] border-[#D5D3CE]' : 'bg-black/20 border-[#2A2A2C]'
-              }`}>
-                <span className={`${isLight ? 'text-[#18181B]' : 'text-[#FF9F0A]'} font-bold text-[14px] tracking-wider`}>20260702_B651N_01</span>
+          {/* Header Row: Mode Switch Tabs & Collapse/Expand Button */}
+          <div className={`flex items-center gap-1.5 ${isPanelCollapsed ? '' : 'mb-3'}`}>
+            {isPanelCollapsed ? (
+              /* When Collapsed: show current sortie (with green dot for live, no green dot for history) */
+              <div
+                onClick={() => setIsPanelCollapsed(false)}
+                className={`flex-1 h-[34px] px-2.5 rounded-sm border flex items-center gap-2 cursor-pointer transition-colors ${
+                  isLight 
+                    ? 'bg-[#ECEBE7] border-[#D5D3CE] hover:bg-[#E2E0DB]' 
+                    : 'bg-black/30 border-[#2A2A2C] hover:bg-black/40'
+                }`}
+                title="点击展开面板"
+              >
+                {systemMode === 'live' && (
+                  <span className="w-2 h-2 rounded-full bg-[#22C55E] shadow-[0_0_6px_#22C55E] animate-pulse shrink-0" />
+                )}
+                <span className={`font-mono font-bold text-xs tracking-wider truncate ${
+                  isLight ? 'text-[#18181B]' : 'text-white'
+                }`}>
+                  {systemMode === 'live' ? '20260702_B651N_01' : (selectedFlightId || '20260711_B651N_02')}
+                </span>
               </div>
             ) : (
-              <div className="space-y-3">
-                {/* Date Filter Selection */}
-                <div className="space-y-1.5 relative">
-                  
-                  {/* Backdrop for closing popover */}
-                  {isCalendarOpen && (
-                    <div 
-                      className="fixed inset-0 z-20 cursor-default" 
-                      onClick={() => {
-                        setIsCalendarOpen(false);
-                        setCalendarView('days');
-                      }} 
-                    />
-                  )}
-
-                  <div className="relative z-30">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextOpen = !isCalendarOpen;
-                        setIsCalendarOpen(nextOpen);
-                        if (nextOpen) {
-                          setCalendarView('days');
-                        }
-                      }}
-                      className={`w-full flex items-center justify-between border rounded-sm px-2.5 py-1.5 text-xs focus:outline-none cursor-pointer font-mono transition-all ${
-                        isLight 
-                          ? 'bg-[#FAFAF8] hover:bg-[#ECEBE7] border-[#D5D3CE] text-[#18181B]' 
-                          : 'bg-black/40 hover:bg-black/60 border-[#2A2A2C] hover:border-zinc-500 text-white'
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        <Clock size={12} className={isLight ? "text-[#0284C7]" : "text-[#0A84FF]"} />
-                        <span className="font-bold">
-                          {!endDateFilter 
-                            ? startDateFilter 
-                            : `${startDateFilter} 至 ${endDateFilter}`}
-                        </span>
-                      </div>
-                      <span className={`text-[9px] ${isLight ? 'text-[#71717A]' : 'text-white/40'}`}>{isCalendarOpen ? '▲' : '▼'}</span>
-                    </button>
-                    
-                    {/* Calendar Popover */}
-                    {isCalendarOpen && (
-                      <div className={`absolute top-full left-0 right-0 mt-1 z-30 border rounded-sm p-3 shadow-2xl font-mono ${
-                        isLight ? 'bg-[#FAFAF8] border-[#D5D3CE] text-[#18181B]' : 'bg-[#121214] border-[#2A2A2C] text-white'
-                      }`}>
-                        {/* Month / Year Picker Header */}
-                        <div className={`flex items-center justify-between mb-2.5 pb-2 border-b ${
-                          isLight ? 'border-[#E4E3DE]' : 'border-[#2A2A2C]/50'
-                        }`}>
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              if (calendarView === 'years') {
-                                setYearPageStart(prev => prev - 12);
-                              } else if (calendarView === 'months') {
-                                setCalendarYear(prev => prev - 1);
-                              } else {
-                                handlePrevMonth();
-                              }
-                            }}
-                            className={`px-1.5 py-0.5 border rounded-xs cursor-pointer text-[10px] ${
-                              isLight 
-                                ? 'bg-[#ECEBE7] hover:bg-[#E2E0DB] border-[#D5D3CE] text-[#18181B]' 
-                                : 'bg-black/20 hover:bg-white/5 border-[#2A2A2C] text-white/60 hover:text-white'
-                            }`}
-                          >
-                            &lt;
-                          </button>
-
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setYearPageStart(Math.floor(calendarYear / 12) * 12);
-                                setCalendarView(prev => prev === 'years' ? 'days' : 'years');
-                              }}
-                              className={`px-1.5 py-0.5 rounded-xs text-[11px] font-bold tracking-wider cursor-pointer transition-colors ${
-                                calendarView === 'years'
-                                  ? (isLight ? 'bg-[#0284C7] text-white' : 'bg-[#0A84FF] text-white')
-                                  : (isLight ? 'text-[#18181B] hover:bg-[#ECEBE7]' : 'text-white hover:bg-white/10')
-                              }`}
-                              title="点击快捷选择年份"
-                            >
-                              {calendarYear}年
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setCalendarView(prev => prev === 'months' ? 'days' : 'months')}
-                              className={`px-1.5 py-0.5 rounded-xs text-[11px] font-bold tracking-wider cursor-pointer transition-colors ${
-                                calendarView === 'months'
-                                  ? (isLight ? 'bg-[#0284C7] text-white' : 'bg-[#0A84FF] text-white')
-                                  : (isLight ? 'text-[#18181B] hover:bg-[#ECEBE7]' : 'text-white hover:bg-white/10')
-                              }`}
-                              title="点击快捷选择月份"
-                            >
-                              {calendarMonth + 1}月
-                            </button>
-                          </div>
-
-                          <button 
-                            type="button"
-                            onClick={() => {
-                              if (calendarView === 'years') {
-                                setYearPageStart(prev => prev + 12);
-                              } else if (calendarView === 'months') {
-                                setCalendarYear(prev => prev + 1);
-                              } else {
-                                handleNextMonth();
-                              }
-                            }}
-                            className={`px-1.5 py-0.5 border rounded-xs cursor-pointer text-[10px] ${
-                              isLight 
-                                ? 'bg-[#ECEBE7] hover:bg-[#E2E0DB] border-[#D5D3CE] text-[#18181B]' 
-                                : 'bg-black/20 hover:bg-white/5 border-[#2A2A2C] text-white/60 hover:text-white'
-                            }`}
-                          >
-                            &gt;
-                          </button>
-                        </div>
-
-                        {calendarView === 'years' ? (
-                          /* Years Quick Selection Grid */
-                          <div className="grid grid-cols-3 gap-1.5 py-1 text-center">
-                            {Array.from({ length: 12 }, (_, idx) => yearPageStart + idx).map(yr => {
-                              const isCurrentYear = yr === calendarYear;
-                              const yearPrefix = `${yr}-`;
-                              const hasYearFlights = Object.keys(flightCountMap).some(d => d.startsWith(yearPrefix));
-                              return (
-                                <button
-                                  key={yr}
-                                  type="button"
-                                  onClick={() => {
-                                    setCalendarYear(yr);
-                                    setCalendarView('days');
-                                  }}
-                                  className={`h-8 text-[11px] font-bold rounded-xs flex flex-col items-center justify-center relative transition-all cursor-pointer ${
-                                    isCurrentYear
-                                      ? (isLight ? 'bg-[#0284C7] text-white' : 'bg-[#0A84FF] text-white')
-                                      : hasYearFlights
-                                        ? (isLight ? 'bg-sky-50 text-[#0284C7] hover:bg-sky-100 border border-sky-200' : 'bg-[#0A84FF]/10 text-[#0A84FF] hover:bg-[#0A84FF]/20 border border-[#0A84FF]/25')
-                                        : (isLight ? 'text-[#3F3F46] hover:bg-[#ECEBE7]' : 'text-white/60 hover:bg-white/5 hover:text-white')
-                                  }`}
-                                >
-                                  <span>{yr}年</span>
-                                  {hasYearFlights && !isCurrentYear && (
-                                    <span className={`absolute bottom-1 w-1 h-1 rounded-full ${isLight ? 'bg-[#0284C7]' : 'bg-[#0A84FF]'}`} />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : calendarView === 'months' ? (
-                          /* Months Quick Selection Grid */
-                          <div className="grid grid-cols-3 gap-1.5 py-1 text-center">
-                            {Array.from({ length: 12 }, (_, mIdx) => mIdx).map(mIdx => {
-                              const isCurrentMonth = mIdx === calendarMonth;
-                              const monthPrefix = `${calendarYear}-${(mIdx + 1).toString().padStart(2, '0')}-`;
-                              const hasMonthFlights = Object.keys(flightCountMap).some(d => d.startsWith(monthPrefix));
-                              return (
-                                <button
-                                  key={mIdx}
-                                  type="button"
-                                  onClick={() => {
-                                    setCalendarMonth(mIdx);
-                                    setCalendarView('days');
-                                  }}
-                                  className={`h-8 text-[11px] font-bold rounded-xs flex flex-col items-center justify-center relative transition-all cursor-pointer ${
-                                    isCurrentMonth
-                                      ? (isLight ? 'bg-[#0284C7] text-white' : 'bg-[#0A84FF] text-white')
-                                      : hasMonthFlights
-                                        ? (isLight ? 'bg-sky-50 text-[#0284C7] hover:bg-sky-100 border border-sky-200' : 'bg-[#0A84FF]/10 text-[#0A84FF] hover:bg-[#0A84FF]/20 border border-[#0A84FF]/25')
-                                        : (isLight ? 'text-[#3F3F46] hover:bg-[#ECEBE7]' : 'text-white/60 hover:bg-white/5 hover:text-white')
-                                  }`}
-                                >
-                                  <span>{mIdx + 1}月</span>
-                                  {hasMonthFlights && !isCurrentMonth && (
-                                    <span className={`absolute bottom-1 w-1 h-1 rounded-full ${isLight ? 'bg-[#0284C7]' : 'bg-[#0A84FF]'}`} />
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <>
-                            {/* Weekdays */}
-                            <div className={`grid grid-cols-7 gap-1 text-center text-[9px] font-bold mb-1 ${
-                              isLight ? 'text-[#71717A]' : 'text-white/30'
-                            }`}>
-                              <span>日</span>
-                              <span>一</span>
-                              <span>二</span>
-                              <span>三</span>
-                              <span>四</span>
-                              <span>五</span>
-                              <span>六</span>
-                            </div>
-
-                            {/* Days Grid */}
-                            <div className="grid grid-cols-7 gap-1 text-center">
-                              {calendarDays.map((item, idx) => {
-                                if (item.day === null) {
-                                  return <div key={`empty-${idx}`} className="h-6" />;
-                                }
-
-                                const hasFlights = (flightCountMap[item.dateString] || 0) > 0;
-                                const isStart = startDateFilter === item.dateString;
-                                const isEnd = endDateFilter === item.dateString;
-                                const isInRange = startDateFilter && endDateFilter && item.dateString > startDateFilter && item.dateString < endDateFilter;
-                                const isSelected = isStart || isEnd;
-
-                                return (
-                                  <button
-                                    key={item.dateString}
-                                    type="button"
-                                    onClick={() => {
-                                      if (!startDateFilter || (startDateFilter && endDateFilter)) {
-                                        setStartDateFilter(item.dateString);
-                                        setEndDateFilter(null);
-                                      } else {
-                                        if (item.dateString < startDateFilter) {
-                                          setStartDateFilter(item.dateString);
-                                        } else {
-                                          setEndDateFilter(item.dateString);
-                                        }
-                                      }
-                                    }}
-                                    className={`h-6 w-full text-[10px] font-bold flex flex-col items-center justify-center relative transition-all cursor-pointer ${
-                                      isSelected
-                                        ? (isLight ? 'bg-[#0284C7] text-white rounded-xs' : 'bg-[#0A84FF] text-white rounded-xs')
-                                        : isInRange
-                                          ? (isLight ? 'bg-sky-100 text-sky-900' : 'bg-[#0A84FF]/25 text-white')
-                                          : hasFlights
-                                            ? (isLight ? 'bg-sky-50 text-[#0284C7] hover:bg-sky-100 border border-sky-200 rounded-xs' : 'bg-[#0A84FF]/10 text-[#0A84FF] hover:bg-[#0A84FF]/20 border border-[#0A84FF]/25 rounded-xs')
-                                            : (isLight ? 'text-[#3F3F46] hover:bg-[#ECEBE7] rounded-xs' : 'text-white/40 hover:bg-white/5 hover:text-white/90 rounded-xs')
-                                    }`}
-                                  >
-                                    <span>{item.day}</span>
-                                    {hasFlights && !isSelected && (
-                                      <span className={`absolute bottom-0.5 w-1 h-1 rounded-full ${isLight ? 'bg-[#0284C7]' : 'bg-[#0A84FF]'}`} />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Interactive Flight List */}
-                <div className="space-y-1">
-                  <div className={`text-[12px] font-normal pb-1 ${isLight ? 'text-[#71717A]' : 'text-white/50'}`}>
-                    <span>历史架次:</span>
-                  </div>
-                  <div className={`border rounded-sm overflow-hidden ${
-                    isLight ? 'border-[#D5D3CE] bg-[#FAFAF8]' : 'border-[#2A2A2C] bg-black/25'
-                  }`}>
-                    {/* Fixed Table Header */}
-                    <div className={`flex justify-between items-center px-2.5 py-1.5 text-[9px] font-bold border-b font-mono ${
-                      isLight ? 'text-[#71717A] bg-[#ECEBE7] border-[#D5D3CE]' : 'text-white/40 bg-white/5 border-[#2A2A2C]'
-                    }`}>
-                      <button
-                        type="button"
-                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                        className={`w-[63%] transition-colors flex justify-center items-center gap-0.5 cursor-pointer select-none ${
-                          isLight ? 'hover:text-[#18181B]' : 'hover:text-white'
-                        }`}
-                      >
-                        架次编号 {sortOrder === 'desc' ? '▼' : '▲'}
-                      </button>
-                      <span className="w-[22%] text-center">起飞时间</span>
-                      <span className="w-[15%] text-center">总时长</span>
-                    </div>
-
-                    {/* Scrollable List Body */}
-                    <div className={`max-h-[160px] overflow-y-auto divide-y ${
-                      isLight 
-                        ? 'divide-[#E4E3DE] custom-scrollbar' 
-                        : 'scrollbar-thin scrollbar-thumb-zinc-850 divide-[#2A2A2C]/30'
-                    }`}>
-                      {sortedHistoryFlights.length === 0 ? (
-                        <div className={`text-center py-6 text-[11px] font-mono ${isLight ? 'text-[#71717A]' : 'text-white/30'}`}>
-                          该日期无归档架次
-                        </div>
-                      ) : (
-                        sortedHistoryFlights.map((f) => {
-                          const isSelected = selectedFlightId === f.id;
-                          const timeFormatted = `${f.startHour.toString().padStart(2, '0')}:${f.startMin.toString().padStart(2, '0')}`;
-                          return (
-                            <button
-                              key={f.id}
-                              type="button"
-                              onClick={() => onSelectFlight(f.id)}
-                              className={`w-full text-left px-2.5 py-2 transition-all cursor-pointer flex justify-between items-center ${
-                                isLight
-                                  ? (isSelected
-                                      ? 'bg-sky-100/70 text-[#0284C7] font-bold border-l-2 border-[#0284C7]'
-                                      : 'bg-transparent text-[#3F3F46] hover:bg-[#ECEBE7] border-l-2 border-transparent')
-                                  : (isSelected
-                                      ? 'bg-[#0A84FF]/15 text-white font-bold border-l-2 border-[#0A84FF]'
-                                      : 'bg-transparent text-white/50 hover:bg-white/5 hover:text-white border-l-2 border-transparent')
-                              }`}
-                            >
-                              <span className={`w-[63%] text-center text-[11px] font-mono tracking-wide truncate ${
-                                isLight 
-                                  ? (isSelected ? 'text-[#0284C7] font-bold' : 'text-[#18181B]')
-                                  : (isSelected ? 'text-[#0A84FF]' : 'text-white/80')
-                              }`}>
-                                {f.id}
-                              </span>
-                              <span className={`w-[22%] text-center text-[10.5px] font-mono ${isLight ? 'text-[#71717A]' : 'text-white/60'}`}>
-                                {timeFormatted}
-                              </span>
-                              <span className={`w-[15%] text-center text-[10.5px] font-mono ${isLight ? 'text-[#71717A]' : 'text-white/60'}`}>
-                                {Number(f.durationHours.toFixed(2))}h
-                              </span>
-                            </button>
-                          );
-                        })
-                      )}
-                    </div>
-                  </div>
-                </div>
+              /* When Expanded: show mode switch tabs [ 实况 ] [ 历史 ] */
+              <div className={`grid grid-cols-2 gap-1 p-1 border rounded-sm flex-1 ${
+                isLight ? 'bg-[#ECEBE7] border-[#D5D3CE]' : 'bg-black/40 border-[#2A2A2C]'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => onToggleMode('live')}
+                  className={`py-1.5 text-[11px] font-bold rounded-xs cursor-pointer transition-all flex items-center justify-center gap-1 ${
+                    systemMode === 'live'
+                      ? (isLight ? 'bg-[#FAFAF8] text-[#18181B] shadow-xs border border-[#D5D3CE] font-bold' : 'bg-[#2A2A2C] text-[#FF9F0A] border-white/5 shadow-xs font-bold')
+                      : (isLight ? 'text-[#71717A] hover:text-[#18181B]' : 'text-white/40 hover:text-white')
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] animate-pulse"></span>
+                  实况
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onToggleMode('history')}
+                  className={`py-1.5 text-[11px] font-bold rounded-xs cursor-pointer transition-all flex items-center justify-center gap-1 ${
+                    systemMode === 'history'
+                      ? (isLight ? 'bg-[#FAFAF8] text-[#0284C7] shadow-xs border border-[#D5D3CE] font-bold' : 'bg-[#2A2A2C] text-[#0A84FF] border-white/5 shadow-xs font-bold')
+                      : (isLight ? 'text-[#71717A] hover:text-[#18181B]' : 'text-white/40 hover:text-white')
+                  }`}
+                >
+                  <Clock size={11} />
+                  历史
+                </button>
               </div>
             )}
+
+            {/* Collapse/Expand Toggle Button: Just the arrow icon */}
+            <button
+              type="button"
+              onClick={() => setIsPanelCollapsed(prev => !prev)}
+              className={`w-[34px] h-[34px] rounded-sm border flex items-center justify-center cursor-pointer transition-colors shrink-0 ${
+                isLight 
+                  ? 'bg-[#ECEBE7] border-[#D5D3CE] text-[#52525B] hover:text-[#18181B] hover:bg-[#E2E0DB]' 
+                  : 'bg-black/40 border-[#2A2A2C] text-white/60 hover:text-white hover:bg-white/10'
+              }`}
+              title={isPanelCollapsed ? "展开面板" : "收起面板"}
+            >
+              {isPanelCollapsed ? <ChevronDown size={15} /> : <ChevronUp size={15} />}
+            </button>
           </div>
+
+          {/* Sortie Selector (hidden when collapsed) */}
+          {!isPanelCollapsed && (
+            <div className="space-y-2 animate-in fade-in duration-100">
+              {systemMode === 'live' ? (
+                <div className={`border p-2.5 rounded-sm flex items-center justify-start ${
+                  isLight ? 'bg-[#ECEBE7] border-[#D5D3CE]' : 'bg-black/20 border-[#2A2A2C]'
+                }`}>
+                  <span className={`${isLight ? 'text-[#18181B]' : 'text-[#FF9F0A]'} font-bold text-[14px] tracking-wider`}>20260702_B651N_01</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Date Filter Selection */}
+                  <DateRangePicker
+                    startDate={startDateFilter}
+                    endDate={endDateFilter}
+                    onChange={(start, end) => {
+                      setStartDateFilter(start || '');
+                      setEndDateFilter(end);
+                    }}
+                    flightCountMap={flightCountMap}
+                  />
+
+                  {/* Interactive Flight List */}
+                  <div className="space-y-1">
+                    <div className={`text-[12px] font-normal pb-1 ${isLight ? 'text-[#71717A]' : 'text-white/50'}`}>
+                      <span>历史架次:</span>
+                    </div>
+                    <div className={`border rounded-sm overflow-hidden ${
+                      isLight ? 'border-[#D5D3CE] bg-[#FAFAF8]' : 'border-[#2A2A2C] bg-black/25'
+                    }`}>
+                      {/* Fixed Table Header */}
+                      <div className={`flex justify-between items-center px-2.5 py-1.5 text-[9px] font-bold border-b font-mono ${
+                        isLight ? 'text-[#71717A] bg-[#ECEBE7] border-[#D5D3CE]' : 'text-white/40 bg-white/5 border-[#2A2A2C]'
+                      }`}>
+                        <button
+                          type="button"
+                          onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                          className={`w-[63%] transition-colors flex justify-center items-center gap-0.5 cursor-pointer select-none ${
+                            isLight ? 'hover:text-[#18181B]' : 'hover:text-white'
+                          }`}
+                        >
+                          架次编号 {sortOrder === 'desc' ? '▼' : '▲'}
+                        </button>
+                        <span className="w-[22%] text-center">起飞时间</span>
+                        <span className="w-[15%] text-center">总时长</span>
+                      </div>
+
+                      {/* Scrollable List Body */}
+                      <div className={`max-h-[160px] overflow-y-auto divide-y ${
+                        isLight 
+                          ? 'divide-[#E4E3DE] custom-scrollbar' 
+                          : 'scrollbar-thin scrollbar-thumb-zinc-850 divide-[#2A2A2C]/30'
+                      }`}>
+                        {sortedHistoryFlights.length === 0 ? (
+                          <div className={`text-center py-6 text-[11px] font-mono ${isLight ? 'text-[#71717A]' : 'text-white/30'}`}>
+                            该日期无归档架次
+                          </div>
+                        ) : (
+                          sortedHistoryFlights.map((f) => {
+                            const isSelected = selectedFlightId === f.id;
+                            const timeFormatted = `${f.startHour.toString().padStart(2, '0')}:${f.startMin.toString().padStart(2, '0')}`;
+                            return (
+                              <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => onSelectFlight(f.id)}
+                                className={`w-full text-left px-2.5 py-2 transition-all cursor-pointer flex justify-between items-center ${
+                                  isLight
+                                    ? (isSelected
+                                        ? 'bg-sky-100/70 text-[#0284C7] font-bold border-l-2 border-[#0284C7]'
+                                        : 'bg-transparent text-[#3F3F46] hover:bg-[#ECEBE7] border-l-2 border-transparent')
+                                    : (isSelected
+                                        ? 'bg-[#0A84FF]/15 text-white font-bold border-l-2 border-[#0A84FF]'
+                                        : 'bg-transparent text-white/50 hover:bg-white/5 hover:text-white border-l-2 border-transparent')
+                                }`}
+                              >
+                                <span className={`w-[63%] text-center text-[11px] font-mono tracking-wide truncate ${
+                                  isLight 
+                                    ? (isSelected ? 'text-[#0284C7] font-bold' : 'text-[#18181B]')
+                                    : (isSelected ? 'text-[#0A84FF]' : 'text-white/80')
+                                }`}>
+                                  {f.id}
+                                </span>
+                                <span className={`w-[22%] text-center text-[10.5px] font-mono ${isLight ? 'text-[#71717A]' : 'text-white/60'}`}>
+                                  {timeFormatted}
+                                </span>
+                                <span className={`w-[15%] text-center text-[10.5px] font-mono ${isLight ? 'text-[#71717A]' : 'text-white/60'}`}>
+                                  {Number(f.durationHours.toFixed(2))}h
+                                </span>
+                              </button>
+                            );
+                          })
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </div>
+    </div>
     </div>
   );
 }

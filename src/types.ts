@@ -94,3 +94,41 @@ export interface SystemLog {
   message: string;
   type: 'info' | 'warning' | 'danger' | 'success';
 }
+
+export type TabCategory = 'flight' | 'icing' | 'turbulence';
+
+export interface PanelLayoutConfig {
+  categoryOrder: TabCategory[];
+  icingOrder: string[]; // algorithm IDs
+  icingVisibility: Record<string, boolean>; // id -> visible
+  turbulenceOrder: string[]; // algorithm IDs
+  turbulenceVisibility: Record<string, boolean>; // id -> visible
+}
+
+export type AlgorithmTreeCategory = 'all' | 'icing' | 'icing_intensity' | 'max_distance' | 'turbulence';
+
+export interface AlgorithmParamDef {
+  key: string;
+  name: string;
+  unit: string;
+  defaultValue: number;
+  min: number;
+  max: number;
+  step?: number;
+  description?: string;
+}
+
+export interface SystemAlgorithmItem {
+  id: string; // 算法 ID, 如 'IC_INDEX', 'XGB', 'MAX_DIST_ICE', 'ELLROD2'
+  legacyId: string; // 对应系统中 ALGORITHMS / TURBULENCE_ALGORITHMS 的实际 key
+  name: string; // 算法完整名称
+  shortName: string; // 简称/代号
+  category: 'icing_intensity' | 'max_distance' | 'turbulence';
+  categoryLabel: string;
+  version: string; // 'YYYY-MM-DD HH:mm:ss'
+  supportsParams: boolean;
+  supportsThresholds: boolean;
+  isFrostPoint?: boolean;
+  paramDefs?: AlgorithmParamDef[];
+  defaultParams?: Record<string, number>;
+}
